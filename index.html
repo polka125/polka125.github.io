@@ -9,7 +9,6 @@
     <title>Sergei Novozhilov</title>
 
 
-
     <style>
         body {
             margin: 0;
@@ -30,8 +29,47 @@
             padding: 10px;
             border-radius: 5px;
         }
+    
+        /* for game */
+        .mobile-controls {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                gap: 10px;
+                width: 220px;
+                height: 220px;
+            }
+        }
+        
+        .arrow-btn {
+            background-color: rgba(255, 255, 255, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .arrow-btn:active {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
     </style>
-
 
     <script type="importmap">
     {
@@ -43,11 +81,40 @@
     }
     </script>
 
+
+
+
+
 </head>
 <body class="p-0" style="min-height: 100vh; display: flex; flex-direction: column;">
     
     
-
+<!-- Mobile Controls -->
+<div class="mobile-controls">
+    <!-- Row 1: empty U U' empty -->
+    <div class="arrow-btn empty" style="grid-column: 1; grid-row: 1;"></div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 1;" id="btn-u">U</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 1;" id="btn-u-prime">U'</div>
+    <div class="arrow-btn empty" style="grid-column: 4; grid-row: 1;"></div>
+    
+    <!-- Row 2: L F F' R -->
+    <div class="arrow-btn" style="grid-column: 1; grid-row: 2;" id="btn-l">L</div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 2;" id="btn-f">F</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 2;" id="btn-f-prime">F'</div>
+    <div class="arrow-btn" style="grid-column: 4; grid-row: 2;" id="btn-r">R</div>
+    
+    <!-- Row 3: L' B B' R' -->
+    <div class="arrow-btn" style="grid-column: 1; grid-row: 3;" id="btn-l-prime">L'</div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 3;" id="btn-b">B</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 3;" id="btn-b-prime">B'</div>
+    <div class="arrow-btn" style="grid-column: 4; grid-row: 3;" id="btn-r-prime">R'</div>
+    
+    <!-- Row 4: empty D D' empty -->
+    <div class="arrow-btn empty" style="grid-column: 1; grid-row: 4;"></div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 4;" id="btn-d">D</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 4;" id="btn-d-prime">D'</div>
+    <div class="arrow-btn empty" style="grid-column: 4; grid-row: 4;"></div>
+</div>
     <!-- Import map for module resolution -->
 
 
@@ -55,12 +122,79 @@
         <h3>Rubik's Cube Simulator</h3>
         <p>Use mouse to orbit around the cube</p>
         <p>Adjust craziness level in the control panel</p>
+        <p class="md:hidden">Use arrow controls for cube rotations</p>
+
     </div>
     
     <!-- Load the main script directly -->
     <script type="module" src="animate.js"></script>
     
     
+
+    <script type="module">
+       // Mobile controls setup with event emitters
+       import GUI from 'lil-gui';
+       
+       // Wait for DOM and animate.js to load
+    // Mobile controls setup using simple events
+       document.addEventListener('DOMContentLoaded', function() {
+           // Create a simple event system
+           window.cubeEvents = {
+               listeners: {},
+               on: function(event, callback) {
+                   if (!this.listeners[event]) {
+                       this.listeners[event] = [];
+                   }
+                   this.listeners[event].push(callback);
+               },
+               emit: function(event, data) {
+                   if (this.listeners[event]) {
+                       this.listeners[event].forEach(callback => {
+                           callback(data);
+                       });
+                   }
+               }
+           };        
+           
+           // Setup button event handlers
+           const buttons = {
+               'btn-u': { key: 'u', name: 'Up Face' },
+               'btn-u-prime': { key: 'U', name: 'Up Face Prime' },
+               'btn-d': { key: 'd', name: 'Down Face' },
+               'btn-d-prime': { key: 'D', name: 'Down Face Prime' },
+               'btn-l': { key: 'l', name: 'Left Face' },
+               'btn-l-prime': { key: 'L', name: 'Left Face Prime' },
+               'btn-r': { key: 'r', name: 'Right Face' },
+               'btn-r-prime': { key: 'R', name: 'Right Face Prime' },
+               'btn-f': { key: 'f', name: 'Front Face' },
+               'btn-f-prime': { key: 'F', name: 'Front Face Prime' },
+               'btn-b': { key: 'b', name: 'Back Face' },
+               'btn-b-prime': { key: 'B', name: 'Back Face Prime' }
+           };
+           
+           Object.entries(buttons).forEach(([id, info]) => {
+               const btn = document.getElementById(id);
+               if (btn) {
+                   // Handle both touch and click events
+                   ['touchstart', 'mousedown'].forEach(eventType => {
+                       btn.addEventListener(eventType, (e) => {
+                           e.preventDefault(); // Prevent default behavior
+                           
+                           // Create a synthetic keyboard event
+                           const event = new KeyboardEvent('keydown', {
+                               key: info.key
+                           });
+                           
+                           // Dispatch to document
+                           document.dispatchEvent(event);
+
+                       });
+                   });
+               }
+           });
+       });
+   </script>
+
 <!--     
     
     <div class="p-5 md:p-20 md:grid grid-cols-6 md:gap-4">
