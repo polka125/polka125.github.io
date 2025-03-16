@@ -558,7 +558,7 @@ loader.load(
             if (item) filledCount++;
         });
         console.log(`After delayed init: Grid filled with ${filledCount} cubies out of 27`);
-        }, 5); // 500ms delay should be sufficient
+        }, 100); // 500ms delay should be sufficient
       
 
   },
