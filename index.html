@@ -7,21 +7,70 @@
     <link rel="icon" href="img/icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <title>Sergei Novozhilov</title>
+
+
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1a1a2e;
+        }
+        canvas {
+            display: block;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+        "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.esm.js"
+      }
+    }
+    </script>
+
 </head>
 <body class="p-0" style="min-height: 100vh; display: flex; flex-direction: column;">
+    
+    
+
+    <!-- Import map for module resolution -->
+
+
+    <div id="instructions">
+        <h3>Rubik's Cube Simulator</h3>
+        <p>Use mouse to orbit around the cube</p>
+        <p>Adjust craziness level in the control panel</p>
+    </div>
+    
+    <!-- Load the main script directly -->
+    <script type="module" src="animate.js"></script>
+    
+    
+<!--     
+    
     <div class="p-5 md:p-20 md:grid grid-cols-6 md:gap-4">
         <div class="visit-card__ md:col-span-2">
             <div class="img-wrapper p-6"><img class="md:w-80 rounded-xl drop-shadow-lg" src="img/lordphotocut.jpg" alt="photo of me"></div>
-            <!-- <div class="contacts__ m-2">
-                <ul>
-                    <li>e-mail: </li>
-                </ul>
-            </div> -->
+
         </div>
 
         <div class="infos__ md:col-span-4">
         <div class="text-base">
-            <!-- <h1 class="font-bold text-5xl text-red-600">SITE IS UNDER DEVELOPMENT AND CONTAINS LOTS OF MISTAKES! NONE OF THIS INFORMATION SHOULD BE CONSIDERED TRUE</h1> -->
 
             <h1 class="mt-8 mb-4 text-3xl font-medium">Hi! My name is Sergei Novozhilov</h1> 
             <p>
@@ -133,12 +182,12 @@
 
 
         </div>
-    </div>
+    </div> -->
 
 
 <div style="flex-grow:1"></div>
 
-<footer class="bottom-0 left-0 z-20 p-4 w-full bg-white border-t border-gray-200 shadow md:flex md:items-center md:justify-between md:p-6 dark:bg-gray-800 dark:border-gray-600">
+<!-- <footer class="bottom-0 left-0 z-20 p-4 w-full bg-white border-t border-gray-200 shadow md:flex md:items-center md:justify-between md:p-6 dark:bg-gray-800 dark:border-gray-600">
     <span class="text-sm text-gray-500 sm:text-center dark:text-gray-400">2022 Sergei Novozhilov
     </span>
     <ul class="flex flex-wrap w-auto justify-between items-start md:items-center mt-3 text-sm text-gray-500 dark:text-gray-400 sm:mt-0 flex-col md:flex-row">
@@ -155,7 +204,7 @@
             tg: @polka125
         </li>
     </ul>
-</footer>
+</footer> -->
 </body>
 
 <style>
