@@ -552,6 +552,11 @@ loader.load(
         initCubieOrganization();
         setupGUI();
         
+        uHandler();
+        uHandler();
+        dHandler();
+        dHandler();
+
         // Verify the grid is correctly populated
         let filledCount = 0;
         cubieGrid.forEach((item) => {
