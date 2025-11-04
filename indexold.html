@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="img/icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Sergei Novozhilov</title>
+
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1a1a2e;
+        }
+        canvas {
+            display: block;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    
+        /* for game */
+        .mobile-controls {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                gap: 10px;
+                width: 220px;
+                height: 220px;
+            }
+        }
+        
+        .arrow-btn {
+            background-color: rgba(255, 255, 255, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .arrow-btn:active {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+        "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.esm.js"
+      }
+    }
+    </script>
+
+
+
+
+
+</head>
+<body class="p-0" style="min-height: 100vh; display: flex; flex-direction: column;">
+    
+    
+<!-- Mobile Controls -->
+<div class="mobile-controls">
+    <!-- Row 1: empty U U' empty -->
+    <div class="arrow-btn empty" style="grid-column: 1; grid-row: 1;"></div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 1;" id="btn-u">U</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 1;" id="btn-u-prime">U'</div>
+    <div class="arrow-btn empty" style="grid-column: 4; grid-row: 1;"></div>
+    
+    <!-- Row 2: L F F' R -->
+    <div class="arrow-btn" style="grid-column: 1; grid-row: 2;" id="btn-l">L</div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 2;" id="btn-f">F</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 2;" id="btn-f-prime">F'</div>
+    <div class="arrow-btn" style="grid-column: 4; grid-row: 2;" id="btn-r">R</div>
+    
+    <!-- Row 3: L' B B' R' -->
+    <div class="arrow-btn" style="grid-column: 1; grid-row: 3;" id="btn-l-prime">L'</div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 3;" id="btn-b">B</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 3;" id="btn-b-prime">B'</div>
+    <div class="arrow-btn" style="grid-column: 4; grid-row: 3;" id="btn-r-prime">R'</div>
+    
+    <!-- Row 4: empty D D' empty -->
+    <div class="arrow-btn empty" style="grid-column: 1; grid-row: 4;"></div>
+    <div class="arrow-btn" style="grid-column: 2; grid-row: 4;" id="btn-d">D</div>
+    <div class="arrow-btn" style="grid-column: 3; grid-row: 4;" id="btn-d-prime">D'</div>
+    <div class="arrow-btn empty" style="grid-column: 4; grid-row: 4;"></div>
+</div>
+    <!-- Import map for module resolution -->
+
+    
+    <!-- Load the main script directly -->
+    <script type="module" src="animate.js"></script>
+    
+    
+
+    <script type="module">
+       // Mobile controls setup with event emitters
+       import GUI from 'lil-gui';
+       
+       // Wait for DOM and animate.js to load
+    // Mobile controls setup using simple events
+       document.addEventListener('DOMContentLoaded', function() {
+           // Create a simple event system
+           window.cubeEvents = {
+               listeners: {},
+               on: function(event, callback) {
+                   if (!this.listeners[event]) {
+                       this.listeners[event] = [];
+                   }
+                   this.listeners[event].push(callback);
+               },
+               emit: function(event, data) {
+                   if (this.listeners[event]) {
+                       this.listeners[event].forEach(callback => {
+                           callback(data);
+                       });
+                   }
+               }
+           };        
+           
+           // Setup button event handlers
+           const buttons = {
+               'btn-u': { key: 'u', name: 'Up Face' },
+               'btn-u-prime': { key: 'U', name: 'Up Face Prime' },
+               'btn-d': { key: 'd', name: 'Down Face' },
+               'btn-d-prime': { key: 'D', name: 'Down Face Prime' },
+               'btn-l': { key: 'l', name: 'Left Face' },
+               'btn-l-prime': { key: 'L', name: 'Left Face Prime' },
+               'btn-r': { key: 'r', name: 'Right Face' },
+               'btn-r-prime': { key: 'R', name: 'Right Face Prime' },
+               'btn-f': { key: 'f', name: 'Front Face' },
+               'btn-f-prime': { key: 'F', name: 'Front Face Prime' },
+               'btn-b': { key: 'b', name: 'Back Face' },
+               'btn-b-prime': { key: 'B', name: 'Back Face Prime' }
+           };
+           
+           Object.entries(buttons).forEach(([id, info]) => {
+               const btn = document.getElementById(id);
+               if (btn) {
+                   // Handle both touch and click events
+                   ['touchstart', 'mousedown'].forEach(eventType => {
+                       btn.addEventListener(eventType, (e) => {
+                           e.preventDefault(); // Prevent default behavior
+                           
+                           // Create a synthetic keyboard event
+                           const event = new KeyboardEvent('keydown', {
+                               key: info.key
+                           });
+                           
+                           // Dispatch to document
+                           document.dispatchEvent(event);
+
+                       });
+                   });
+               }
+           });
+       });
+   </script>
+
+<!--     
+    
+    <div class="p-5 md:p-20 md:grid grid-cols-6 md:gap-4">
+        <div class="visit-card__ md:col-span-2">
+            <div class="img-wrapper p-6"><img class="md:w-80 rounded-xl drop-shadow-lg" src="img/lordphotocut.jpg" alt="photo of me"></div>
+
+        </div>
+
+        <div class="infos__ md:col-span-4">
+        <div class="text-base">
+
+            <h1 class="mt-8 mb-4 text-3xl font-medium">Hi! My name is Sergei Novozhilov</h1> 
+            <p>
+            I am currently pursuing my PhD in Computer Science and Engineering at <a class="underline text-blue-700" href="https://cse.hkust.edu.hk/">the Hong Kong University of Science and Technology</a>
+                under the supervision of <a href="https://www.goharshady.com/home" class="underline text-blue-700">Prof. Amir Goharshady</a>. 
+                The topics of my research are Stochastic Processes, Discrete Mathematics, Computational Complexity, and related fields. 
+            </p>
+            <p class="mt-2">I am the proud recipient of a HKUST PG fellowship along with the RedBird fellowship, allowing me to focus on my research.</p>
+        
+        </div>
+
+
+        <div>
+            <h2 class="mt-8 mb-4 text-xl font-medium">Education</h2>
+            <ul class="list-disc">
+                <li> 
+                    <div class="block m-3">
+                        <div class="place"><a class="underline text-blue-700" href="https://cse.hkust.edu.hk/">The Hong Kong University of Science and Technology</a>, Hong Kong</div>
+                        <div class="details">PhD program in Computer Science and Engineering</div>
+                        <div class="dates">Sep. 2022 &ndash; Present</div>
+                    </div>
+                </li>
+                <li> 
+                    <div class="block m-3">
+                        <div class="result font-medium">Bachelor Degree in Mathematics</div>
+                        <div class="place"><a class="underline text-blue-700" href="https://math-cs.spbu.ru/en/">Saint Petersburg State University</a>, Saint Petersburg</div>
+                        <div class="details">Undergraduate Program in Mathematics and Computer Science</div>
+                        <div class="dates">Sep. 2017 &ndash; May 2021</div>
+                    </div>
+                </li>
+                <li>
+                    <div class="block m-3">
+                        <div class="place">Computer Science Center, Saint Petersburg</div>
+                        <div class="details">Evening courses in Computer Science, Data Science, Robotics, Software Engineering</div>
+                        <div class="dates">Sep. 2020 &ndash; May 2022</div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <p>
+            <h2 class="mt-8 mb-4 text-xl font-medium">Work Expirience</h2>
+            <ul class="list-disc">
+                <li>
+                    <div class="block m-3">
+                        <div class="place">Huawei, Saint Petersburg Research Center, Saint Petersburg</div>
+                        <div class="details">Intern (Part-time)</div>
+                        <div class="dates">Oct. 2021 &ndash; Jul. 2022</div>
+                    </div>
+                </li>
+                <li>
+                    <div class="block m-3">
+                        <div class="place">JetBrains, Remote</div>
+                        <div class="details">Intern (Full-time). Kotlin for Data Science Team.</div>
+                        <div class="dates">Jul. 2021 &ndash; Sep. 2021</div>
+                    </div>
+                </li>
+                <li>
+                    <div class="block m-3">
+                        <div class="place">Euler International Mathematical Institute, Saint Petersburg</div>
+                        <div class="dates">Jan. 2020 &ndash; Jan. 2021</div>
+                    </div>
+                </li>
+
+            </ul>
+        </p>
+
+
+        <p>
+            <h2 class="mt-8 mb-4 text-xl font-medium">Scholarships and Grants</h2>
+            <ul class="list-disc">
+                <li>
+                    <div class="block m-3">
+                        <div class="place">RedBird PhD Fellowship</div>
+                        <div class="details">In recognition of their outstanding academic performance and research capacity</div>
+                        <div class="dates">2022</div>
+                    </div>
+                </li>
+                <li>
+                    <div class="block m-3">
+                        <div class="place">Gazprom Neft Scholarship</div>
+                        <div class="details">Industrial company scholarship for achievements in Mathematics</div>
+                        <div class="dates">Jan. 2018 &ndash; Jan. 2020</div>
+                    </div>
+                </li>
+            </ul>
+
+        </p>
+
+        <p>
+            <h2 class="mt-8 mb-4 text-xl font-medium">Extracurricular Activities</h2>
+            <ul class="list-disc">
+                <li>
+                    <div class="block m-3">
+                        <div class="place">Part of the regional jury in All-Russian School Olympiad in Mathematics</div>
+                        <div class="details">Jury Member</div>
+                        <div class="dates">2018, 2019, 2020</div>
+                    </div>
+                </li>
+                <li>
+                    <div class="block m-3">
+                        <div class="place">Teacher for Mathematics Summer and Winter Camps for Gifted School Students</div>
+                        <div class="dates">Summer 2018, Winter 2019</div>
+                    </div>
+                </li>
+            </ul>
+
+        </p>
+
+
+        </div>
+    </div> -->
+
+
+<div style="flex-grow:1"></div>
+
+<!-- <footer class="bottom-0 left-0 z-20 p-4 w-full bg-white border-t border-gray-200 shadow md:flex md:items-center md:justify-between md:p-6 dark:bg-gray-800 dark:border-gray-600">
+    <span class="text-sm text-gray-500 sm:text-center dark:text-gray-400">2022 Sergei Novozhilov
+    </span>
+    <ul class="flex flex-wrap w-auto justify-between items-start md:items-center mt-3 text-sm text-gray-500 dark:text-gray-400 sm:mt-0 flex-col md:flex-row">
+        <li class="mr-3">
+            <ul>
+                <li><a class="underline text-blue-700" href="mailto:snovozhilov@connect.ust.hk" class="mr-4 hover:underline md:mr-6 ">snovozhilov@connect.ust.hk</a></li>
+                <li><a class="underline text-blue-700" href="mailto:novozhilov1999@mail.ru" class="mr-4 hover:underline md:mr-6 ">novozhilov1999@mail.ru</a></li>
+            </ul>
+        </li>
+        <li class="mr-3">
+            <a class="underline text-blue-700" href="https://github.com/polka125" class="mr-4 hover:underline md:mr-6 ">github</a>
+        </li>
+        <li class="mr-3">
+            tg: @polka125
+        </li>
+    </ul>
+</footer> -->
+</body>
+
+<style>
+</style>
+
+</html>

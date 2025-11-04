@@ -1,339 +1,187 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="img/icon.png">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <title>Sergei Novozhilov</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Sergei Novozhilov, Personal Page</title>
 
+<meta name="description" content="Personal page of Sergei Novozhilov">
+<meta name="keywords" content="Sergei Novozhilov, Personal Page">
+<meta name="resource-type" content="document">
+<meta name="distribution" content="global">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #1a1a2e;
-        }
-        canvas {
-            display: block;
-        }
-        #instructions {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: white;
-            font-family: Arial, sans-serif;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-        }
-    
-        /* for game */
-        .mobile-controls {
-            display: none;
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            z-index: 1000;
-        }
-        
-        @media (max-width: 768px) {
-            .mobile-controls {
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                grid-template-rows: repeat(4, 1fr);
-                gap: 10px;
-                width: 220px;
-                height: 220px;
-            }
-        }
-        
-        .arrow-btn {
-            background-color: rgba(255, 255, 255, 0.25);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            user-select: none;
-            touch-action: manipulation;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        .arrow-btn:active {
-            background-color: rgba(255, 255, 255, 0.5);
-        }
-    </style>
-
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.esm.js"
-      }
+<!-- <link href="#Top" rel="start" title="Top">
+<link href="Concept-Index.html" rel="index" title="Concept Index">
+<link href="../dir_html/index.html" rel="up" title="(dir)">
+<link href="Copying.html" rel="next" title="Copying">
+<link href="../dir_html/index.html" rel="prev" title="(dir)"> -->
+<style>
+    h2 {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 0.3em;
+        margin-bottom: 1em;
+        font-size: 1.8em;
+        color: #111;
     }
-    </script>
 
-
-
+    .publications-list li {
+        margin-bottom: 0.2em; /* Increased spacing between entries */
+    }     
+    .publications-list li span {
+        display: block; /* Makes each span take up a full line */
+    }
+    .pub-authors {
+        font-size: 0.95em;
+        color: #444;
+        margin-bottom: 0.25em;
+    }
+    .pub-authors strong {
+        color: #000;
+    }
+    .pub-title {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #111;
+        margin-bottom: 0.25em;
+    }
+    .pub-venue {
+        font-style: italic;
+        color: #555;
+        font-size: 1em;
+    }
+</style>
 
 
 </head>
-<body class="p-0" style="min-height: 100vh; display: flex; flex-direction: column;">
-    
-    
-<!-- Mobile Controls -->
-<div class="mobile-controls">
-    <!-- Row 1: empty U U' empty -->
-    <div class="arrow-btn empty" style="grid-column: 1; grid-row: 1;"></div>
-    <div class="arrow-btn" style="grid-column: 2; grid-row: 1;" id="btn-u">U</div>
-    <div class="arrow-btn" style="grid-column: 3; grid-row: 1;" id="btn-u-prime">U'</div>
-    <div class="arrow-btn empty" style="grid-column: 4; grid-row: 1;"></div>
-    
-    <!-- Row 2: L F F' R -->
-    <div class="arrow-btn" style="grid-column: 1; grid-row: 2;" id="btn-l">L</div>
-    <div class="arrow-btn" style="grid-column: 2; grid-row: 2;" id="btn-f">F</div>
-    <div class="arrow-btn" style="grid-column: 3; grid-row: 2;" id="btn-f-prime">F'</div>
-    <div class="arrow-btn" style="grid-column: 4; grid-row: 2;" id="btn-r">R</div>
-    
-    <!-- Row 3: L' B B' R' -->
-    <div class="arrow-btn" style="grid-column: 1; grid-row: 3;" id="btn-l-prime">L'</div>
-    <div class="arrow-btn" style="grid-column: 2; grid-row: 3;" id="btn-b">B</div>
-    <div class="arrow-btn" style="grid-column: 3; grid-row: 3;" id="btn-b-prime">B'</div>
-    <div class="arrow-btn" style="grid-column: 4; grid-row: 3;" id="btn-r-prime">R'</div>
-    
-    <!-- Row 4: empty D D' empty -->
-    <div class="arrow-btn empty" style="grid-column: 1; grid-row: 4;"></div>
-    <div class="arrow-btn" style="grid-column: 2; grid-row: 4;" id="btn-d">D</div>
-    <div class="arrow-btn" style="grid-column: 3; grid-row: 4;" id="btn-d-prime">D'</div>
-    <div class="arrow-btn empty" style="grid-column: 4; grid-row: 4;"></div>
+
+<body lang="en">
+
+<div class="top-level-extent" id="Top">
+
+<hr>
+
+
+<div class="self-intro">
+
+<div style="text-align: center; float: right; margin: 10px;">
+    <img src="img/lordphotocut.jpg" alt="Sergei Novozhilov" width="220"/>
+    <div style="font-size: small;">The photo is taken by my dear friend <br><a href="https://www.harshitjm.com/">Harshit Motwani</a></div>
 </div>
-    <!-- Import map for module resolution -->
 
-    
-    <!-- Load the main script directly -->
-    <script type="module" src="animate.js"></script>
-    
-    
+<h1 class="top">Hi, I'm Sergei</h1>
 
-    <script type="module">
-       // Mobile controls setup with event emitters
-       import GUI from 'lil-gui';
-       
-       // Wait for DOM and animate.js to load
-    // Mobile controls setup using simple events
-       document.addEventListener('DOMContentLoaded', function() {
-           // Create a simple event system
-           window.cubeEvents = {
-               listeners: {},
-               on: function(event, callback) {
-                   if (!this.listeners[event]) {
-                       this.listeners[event] = [];
-                   }
-                   this.listeners[event].push(callback);
-               },
-               emit: function(event, data) {
-                   if (this.listeners[event]) {
-                       this.listeners[event].forEach(callback => {
-                           callback(data);
-                       });
-                   }
-               }
-           };        
-           
-           // Setup button event handlers
-           const buttons = {
-               'btn-u': { key: 'u', name: 'Up Face' },
-               'btn-u-prime': { key: 'U', name: 'Up Face Prime' },
-               'btn-d': { key: 'd', name: 'Down Face' },
-               'btn-d-prime': { key: 'D', name: 'Down Face Prime' },
-               'btn-l': { key: 'l', name: 'Left Face' },
-               'btn-l-prime': { key: 'L', name: 'Left Face Prime' },
-               'btn-r': { key: 'r', name: 'Right Face' },
-               'btn-r-prime': { key: 'R', name: 'Right Face Prime' },
-               'btn-f': { key: 'f', name: 'Front Face' },
-               'btn-f-prime': { key: 'F', name: 'Front Face Prime' },
-               'btn-b': { key: 'b', name: 'Back Face' },
-               'btn-b-prime': { key: 'B', name: 'Back Face Prime' }
-           };
-           
-           Object.entries(buttons).forEach(([id, info]) => {
-               const btn = document.getElementById(id);
-               if (btn) {
-                   // Handle both touch and click events
-                   ['touchstart', 'mousedown'].forEach(eventType => {
-                       btn.addEventListener(eventType, (e) => {
-                           e.preventDefault(); // Prevent default behavior
-                           
-                           // Create a synthetic keyboard event
-                           const event = new KeyboardEvent('keydown', {
-                               key: info.key
-                           });
-                           
-                           // Dispatch to document
-                           document.dispatchEvent(event);
-
-                       });
-                   });
-               }
-           });
-       });
-   </script>
-
-<!--     
-    
-    <div class="p-5 md:p-20 md:grid grid-cols-6 md:gap-4">
-        <div class="visit-card__ md:col-span-2">
-            <div class="img-wrapper p-6"><img class="md:w-80 rounded-xl drop-shadow-lg" src="img/lordphotocut.jpg" alt="photo of me"></div>
-
-        </div>
-
-        <div class="infos__ md:col-span-4">
-        <div class="text-base">
-
-            <h1 class="mt-8 mb-4 text-3xl font-medium">Hi! My name is Sergei Novozhilov</h1> 
-            <p>
-            I am currently pursuing my PhD in Computer Science and Engineering at <a class="underline text-blue-700" href="https://cse.hkust.edu.hk/">the Hong Kong University of Science and Technology</a>
-                under the supervision of <a href="https://www.goharshady.com/home" class="underline text-blue-700">Prof. Amir Goharshady</a>. 
-                The topics of my research are Stochastic Processes, Discrete Mathematics, Computational Complexity, and related fields. 
-            </p>
-            <p class="mt-2">I am the proud recipient of a HKUST PG fellowship along with the RedBird fellowship, allowing me to focus on my research.</p>
-        
-        </div>
+<p>Hello! I'm Sergei Novozhilov. I am a final-year PhD candidate at the Hong Kong University of Science and Technology (HKUST), where I am a member of the <a href="https://amir.goharshady.com/group">ALPACAS (Algorithms, Logic, Program Analysis, Cryptocurrencies and Smart Contracts)</a> research group, led by <a href="https://amir.goharshady.com/home">Prof. Amir Goharshady</a>. I am fortunate to be co-supervised by <a href="https://www.cse.ust.hk/~dipapado/">Prof. Dimitris Papadopoulos</a>, from whom I have received constant support, both academically and personally. I have also received significant advice and guidance from <a href="https://fiction-zju.github.io/author/mingshuai-chen/">Dr. Mingshuai Chen</a>. My research journey has been greatly enriched by my collaboration with the <a href="https://fiction-zju.github.io/">FICTION (Formal Verification)</a> group.</p>
 
 
-        <div>
-            <h2 class="mt-8 mb-4 text-xl font-medium">Education</h2>
-            <ul class="list-disc">
-                <li> 
-                    <div class="block m-3">
-                        <div class="place"><a class="underline text-blue-700" href="https://cse.hkust.edu.hk/">The Hong Kong University of Science and Technology</a>, Hong Kong</div>
-                        <div class="details">PhD program in Computer Science and Engineering</div>
-                        <div class="dates">Sep. 2022 &ndash; Present</div>
-                    </div>
-                </li>
-                <li> 
-                    <div class="block m-3">
-                        <div class="result font-medium">Bachelor Degree in Mathematics</div>
-                        <div class="place"><a class="underline text-blue-700" href="https://math-cs.spbu.ru/en/">Saint Petersburg State University</a>, Saint Petersburg</div>
-                        <div class="details">Undergraduate Program in Mathematics and Computer Science</div>
-                        <div class="dates">Sep. 2017 &ndash; May 2021</div>
-                    </div>
-                </li>
-                <li>
-                    <div class="block m-3">
-                        <div class="place">Computer Science Center, Saint Petersburg</div>
-                        <div class="details">Evening courses in Computer Science, Data Science, Robotics, Software Engineering</div>
-                        <div class="dates">Sep. 2020 &ndash; May 2022</div>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
-        <p>
-            <h2 class="mt-8 mb-4 text-xl font-medium">Work Expirience</h2>
-            <ul class="list-disc">
-                <li>
-                    <div class="block m-3">
-                        <div class="place">Huawei, Saint Petersburg Research Center, Saint Petersburg</div>
-                        <div class="details">Intern (Part-time)</div>
-                        <div class="dates">Oct. 2021 &ndash; Jul. 2022</div>
-                    </div>
-                </li>
-                <li>
-                    <div class="block m-3">
-                        <div class="place">JetBrains, Remote</div>
-                        <div class="details">Intern (Full-time). Kotlin for Data Science Team.</div>
-                        <div class="dates">Jul. 2021 &ndash; Sep. 2021</div>
-                    </div>
-                </li>
-                <li>
-                    <div class="block m-3">
-                        <div class="place">Euler International Mathematical Institute, Saint Petersburg</div>
-                        <div class="dates">Jan. 2020 &ndash; Jan. 2021</div>
-                    </div>
-                </li>
-
-            </ul>
-        </p>
+<p>My research focuses on enhancing the security, efficiency, and reliability of complex software systems by bridging the gap between theoretical computer science and practical applications. I specialize in <strong>Formal Methods</strong> and <strong>Program Analysis</strong>, developing techniques to provide formal guarantees about software behavior. My work in this area includes analyzing the termination properties of <strong>Probabilistic Programs</strong> and automatically synthesizing tight resource bounds for recursive systems. A primary application domain for my research is <strong>Blockchain and Decentralized Finance (DeFi)</strong>, where I leverage my expertise in <strong>Algorithms and Optimization</strong> to address critical challenges in this space.</p>
+</div>
 
 
-        <p>
-            <h2 class="mt-8 mb-4 text-xl font-medium">Scholarships and Grants</h2>
-            <ul class="list-disc">
-                <li>
-                    <div class="block m-3">
-                        <div class="place">RedBird PhD Fellowship</div>
-                        <div class="details">In recognition of their outstanding academic performance and research capacity</div>
-                        <div class="dates">2022</div>
-                    </div>
-                </li>
-                <li>
-                    <div class="block m-3">
-                        <div class="place">Gazprom Neft Scholarship</div>
-                        <div class="details">Industrial company scholarship for achievements in Mathematics</div>
-                        <div class="dates">Jan. 2018 &ndash; Jan. 2020</div>
-                    </div>
-                </li>
-            </ul>
-
-        </p>
-
-        <p>
-            <h2 class="mt-8 mb-4 text-xl font-medium">Extracurricular Activities</h2>
-            <ul class="list-disc">
-                <li>
-                    <div class="block m-3">
-                        <div class="place">Part of the regional jury in All-Russian School Olympiad in Mathematics</div>
-                        <div class="details">Jury Member</div>
-                        <div class="dates">2018, 2019, 2020</div>
-                    </div>
-                </li>
-                <li>
-                    <div class="block m-3">
-                        <div class="place">Teacher for Mathematics Summer and Winter Camps for Gifted School Students</div>
-                        <div class="dates">Summer 2018, Winter 2019</div>
-                    </div>
-                </li>
-            </ul>
-
-        </p>
+<h2>Quick Links</h2>
+<ul>
+<li><a href="https://dblp.org/pid/344/1115.html" accesskey="1">DBLP</a></li>
+<!-- my email: sergei.novozhilov@example.com -->
+ <li><a href="mailto:snovozhilov@connect.ust.hk">snovozhilov@connect.ust.hk</a></li>
+ <li>CV</li>
+</ul>
 
 
-        </div>
-    </div> -->
 
 
-<div style="flex-grow:1"></div>
+    <h2>Publications*</h2>
+<p>*The order of authors is alphabetical, as per my research group policy.</p>
+<ul class="publications-list">
+    <li>
+        <span class="pub-authors">Soroush Farokhnia, <strong>Sergei Novozhilov</strong>, Sanaz Safaei, Jiasi Shen</span>
+        <span class="pub-title">Hermes: Scalable and Robust Structure-Aware Optimal Routing for Decentralized Exchanges.</span>
+        <span class="pub-venue">IEEE Blockchain, 2025</span>
+    </li>
+    <li>
+        <span class="pub-authors">Giovanna Kobus Conrado, Amir Kafshdar Goharshady, Harshit Jitendra Motwani, <strong>Sergei Novozhilov</strong></span>
+        <span class="pub-title">Combinatorial Parameterized Algorithms for Chemical Descriptors based on Molecular Graph Sparsity.</span>
+        <span class="pub-venue">LAGOS, 2025</span>
+    </li>
+    <li>
+        <span class="pub-authors"><strong>Sergei Novozhilov</strong>, Mingqi Yang, Mingshuai Chen, Zhiyang Li, Jianwei Yin</span>
+        <span class="pub-title">On the Almost-Sure Termination of Probabilistic Counter Programs.</span>
+        <span class="pub-venue">CAV (2), 2025, pp. 82-104</span>
+    </li>
+    <li>
+        <span class="pub-authors">Amir Kafshdar Goharshady, S. Hitarth, <strong>Sergei Novozhilov</strong></span>
+        <span class="pub-title">Efficient Synthesis of Tight Polynomial Upper-Bounds for Systems of Conditional Polynomial Recurrences.</span>
+        <span class="pub-venue">ESOP (2), 2025, pp. 1-30</span>
+    </li>
+    <li>
+        <span class="pub-authors">Togzhan Barakbayeva, Soroush Farokhnia, Amir Kafshdar Goharshady, Markus Gufler, <strong>Sergei Novozhilov</strong></span>
+        <span class="pub-title">Pixiu: Optimal Block Production Revenues on Cardano.</span>
+        <span class="pub-venue">Blockchain, 2024, pp. 491-496</span>
+    </li>
+</ul>
 
-<!-- <footer class="bottom-0 left-0 z-20 p-4 w-full bg-white border-t border-gray-200 shadow md:flex md:items-center md:justify-between md:p-6 dark:bg-gray-800 dark:border-gray-600">
-    <span class="text-sm text-gray-500 sm:text-center dark:text-gray-400">2022 Sergei Novozhilov
-    </span>
-    <ul class="flex flex-wrap w-auto justify-between items-start md:items-center mt-3 text-sm text-gray-500 dark:text-gray-400 sm:mt-0 flex-col md:flex-row">
-        <li class="mr-3">
-            <ul>
-                <li><a class="underline text-blue-700" href="mailto:snovozhilov@connect.ust.hk" class="mr-4 hover:underline md:mr-6 ">snovozhilov@connect.ust.hk</a></li>
-                <li><a class="underline text-blue-700" href="mailto:novozhilov1999@mail.ru" class="mr-4 hover:underline md:mr-6 ">novozhilov1999@mail.ru</a></li>
-            </ul>
-        </li>
-        <li class="mr-3">
-            <a class="underline text-blue-700" href="https://github.com/polka125" class="mr-4 hover:underline md:mr-6 ">github</a>
-        </li>
-        <li class="mr-3">
-            tg: @polka125
-        </li>
-    </ul>
-</footer> -->
+<h2>Grants and Awards</h2>
+<ul>
+<li><a href="https://blog.ethereum.org/2025/02/06/allocation-q4-24">Ethereum Foundation Grant (ESP), 233,000 HKD, 2024</a></li>
+<li><a href="https://cse.hkust.edu.hk/News/UGTA_PGTA_AE2024/">Professor Samuel Chanson Best PGTA Award, 2023-2024</a></li>
+<li>Global Research Immersion Program for Young Scientists (based in Zhejiang University)</li>
+<li>RedBird PhD Award Program, HKUST, 40,000 HKD, 2022</li>
+<li>Gazprom Neft Scholarship for Outstading Academic Performance, Saint Petersburg State University 2018-2022</li>
+</ul>
+
+
+<h2>Community Service</h2>
+<ul>
+<li>Artifact Reviewer at "TACAS", 2026 (ongoing)</li>
+<li>Manuscript Reviewer at "TACAS", 2026 (ongoing)</li>
+<li>Manuscript Reviewer at "SETTA", 2025 (ongoing)</li>
+<li>Manuscript Reviewer at "Journal of Systems Architecture", 2025</li>
+<li>Manuscript Reviewer at "TACAS", 2025</li>
+<li>Jury Member in All-Russian Olympiad in Mathematics (regional level), 2018, 2019, 2020</li>
+</ul>
+
+<h2>Teaching</h2>
+<ul>
+<li>Undergraduate Project Supervision, Hong Kong, HKUST, 2022, 2023</li>
+<li>Teaching Assistant for "Honors Discrete Mathematical Tools for Computer Science", Hong Kong, HKUST, Fall 2025, Fall 2023 (best TA award)</li>
+<li>Teaching Assistant for "Honors Design and Analysis of Algorithms", Hong Kong, HKUST, Fall 2024</li>
+<li>Introduction to Combinatorial Optimization, Hong Kong, HKUST, Fall, 2022</li>
+<li>Math Olympiad Bootcamp for Gifted School Students, Russia, Winter 2019, Winter 2020</li>
+</ul>
+
+
+
+
+
+<!-- <h2>Research Vision</h2>
+
+<h2>Teaching Vision</h2> -->
+
+
+<h2>Diversity, Equality & Inclusion</h2>
+<p>I am deeply committed to fostering an environment of diversity, equity, and inclusion in all my professional activities. I believe that a rich variety of perspectives, backgrounds, and experiences is fundamental to academic excellence, innovative research, and personal growth. A community where everyone feels respected and valued is a community where everyone can thrive.</p>
+
+<p>In my teaching, I strive to create a respectful learning space where every student feels welcomed to participate. This means actively encouraging dialogue from all voices, incorporating diverse examples and materials into the curriculum, and being mindful of the different learning styles and needs of my students.</p>
+
+<p>
+        To translate these principles into practice, here are some of the concrete measures I am dedicated to implementing:
+</p>
+<ul>
+    <li>
+        <strong>Broadening the Pipeline into STEM:</strong> I will actively support outreach initiatives, such as workshops and competitive Olympiads, for pre-university students, with a focus on engaging those from underrepresented communities. The goal is to spark early interest and demonstrate that a career in science and technology is an exciting and attainable path for everyone.
+    </li>
+    <li>
+        <strong>Dedicated and Anonymous Communication:</strong> To ensure all students can voice concerns freely, I will establish a <strong>distinct and anonymous feedback channel</strong> for my courses. This provides a safe avenue for students to address the course climate, content, or personal challenges without fear of judgment or academic penalty.
+    </li>
+    <li>
+        <strong>Accessible and Flexible Design:</strong> I will design course materials and assessments with <a href="https://udlguidelines.cast.org/">Universal Design principles</a> in mind to ensure they are accessible to all learners. I will also offer flexibility where possible, recognizing that students learn in different ways and may face unique personal circumstances.
+    </li>
+</ul>
+
+<p>I recognize that building a truly inclusive community is an ongoing process. I am always learning and am open to feedback on how I can improve. If you have any concerns, suggestions, or require accommodations to fully participate in my courses or research, please do not hesitate to speak with me.</p>
+
+
+<hr>
+
+
+
 </body>
-
-<style>
-</style>
-
 </html>
