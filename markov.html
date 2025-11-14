@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Mean with Dynamic Value</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111111; /* Match scene background */
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- SCENE GLOBALS ---
+        let scene, camera, renderer;
+        let circles = [];
+        let circleData = []; // This will be the source of truth for calculations
+        let weightedSumLine;
+        let meanValueText;
+        let probabilityText; // Sprite for displaying the probability
+        
+        // --- CONSTANTS ---
+        const a = 1.0; // The position of the 'a' mark is now 1.0
+        const rodYPosition = 0;
+        const circleRadius = 0.1;
+        const blueColor = new THREE.Color(0x0077ff);
+        const greenColor = new THREE.Color(0x00c789);
+
+        // --- INTERACTION GLOBALS ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let draggedObject = null;
+        let dragOffset = new THREE.Vector3();
+
+        // --- INITIALIZATION ---
+        function init() {
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111111);
+
+            // 2. Camera (Orthographic for 2D projection)
+            const aspect = window.innerWidth / window.innerHeight;
+            const viewHeight = 5; 
+            const viewWidth = viewHeight * aspect;
+            const viewCenterX = 2.0;
+
+            camera = new THREE.OrthographicCamera(
+                viewCenterX - viewWidth / 2,
+                viewCenterX + viewWidth / 2,
+                viewHeight / 2,
+                -viewHeight / 2,
+                1,
+                1000
+            );
+            camera.position.z = 10;
+            camera.updateProjectionMatrix();
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // 4. Create Scene Objects
+            createRod();
+            createMarksAndLabels();
+            createCircles(); // Must be called before createProbabilityText
+            createWeightedSumLine();
+            createMeanValueText();
+            createProbabilityText(); // Now calculates the value once
+
+            // 5. Initial Updates
+            circles.forEach(updateCircleColor);
+            updateWeightedSum();
+
+            // 6. Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            renderer.domElement.addEventListener('mousedown', onMouseDown, false);
+            renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+            renderer.domElement.addEventListener('mouseup', onMouseUp, false);
+            renderer.domElement.addEventListener('touchend', onMouseUp, false);
+            renderer.domElement.addEventListener('touchmove', onMouseMove, { passive: false });
+            renderer.domElement.addEventListener('touchstart', onMouseDown, { passive: false });
+
+            // 7. Start Animation Loop
+            animate();
+        }
+
+        // --- OBJECT CREATION FUNCTIONS ---
+
+        function createRod() {
+            const rodLength = 1000;
+            const geometry = new THREE.BoxGeometry(rodLength, 0.1, 0.1);
+            const material = new THREE.MeshBasicMaterial({ color: 0xcccccc });
+            const rod = new THREE.Mesh(geometry, material);
+            rod.position.set(rodLength / 2 - 10, rodYPosition, 0);
+            scene.add(rod);
+        }
+
+        function createMarksAndLabels() {
+            createMark(0);
+            const text0 = createTextSprite("0", { fontsize: 32, fontface: "Arial", textColor: { r:204, g:204, b:204, a:1.0 } });
+            text0.position.set(0, rodYPosition - 0.8, 0);
+            scene.add(text0);
+
+            createMark(a);
+            const textA = createTextSprite("1", { fontsize: 32, fontface: "Arial", textColor: { r:204, g:204, b:204, a:1.0 } });
+            textA.position.set(a, rodYPosition - 0.8, 0);
+            scene.add(textA);
+        }
+
+        function createMark(x) {
+            const material = new THREE.LineBasicMaterial({ color: 0xcccccc });
+            const points = [
+                new THREE.Vector3(x, rodYPosition - 0.4, 0),
+                new THREE.Vector3(x, rodYPosition + 0.4, 0)
+            ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+        }
+
+        function createCircles() {
+            let initialData = [
+                { mass: 25, x: 0.5 }, 
+                { mass: 10, x: 0.8 }, 
+                { mass: 30, x: 2.0 },
+                { mass: 20, x: 3.5 },
+                { mass: 15, x: 1.5 },
+                { mass: 25, x: 5.0}
+            ];
+
+            const totalMass = initialData.reduce((sum, item) => sum + item.mass, 0);
+            
+            circleData = initialData.map(item => {
+                let zone;
+                if (item.x < 0) {
+                    zone = 'left';
+                } else if (item.x < a) {
+                    zone = 'middle';
+                } else {
+                    zone = 'right';
+                }
+
+                return {
+                    mass: item.mass / totalMass,
+                    position: new THREE.Vector3(item.x, rodYPosition + circleRadius + 0.15, 0),
+                    mesh: null,
+                    zone: zone
+                };
+            });
+
+            const geometry = new THREE.CircleGeometry(circleRadius, 32);
+            circleData.forEach(data => {
+                const material = new THREE.MeshBasicMaterial();
+                const circle = new THREE.Mesh(geometry, material);
+                circle.position.copy(data.position);
+                circle.userData = { dataRef: data };
+                data.mesh = circle;
+                circles.push(circle);
+                scene.add(circle);
+            });
+        }
+
+        function createWeightedSumLine() {
+            const material = new THREE.LineDashedMaterial({
+                color: 0xffaa00,
+                linewidth: 2,
+                scale: 1,
+                dashSize: 0.2,
+                gapSize: 0.1,
+            });
+            const points = [new THREE.Vector3(0, -100, -1), new THREE.Vector3(0, 100, -1)];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            weightedSumLine = new THREE.Line(geometry, material);
+            weightedSumLine.computeLineDistances();
+            scene.add(weightedSumLine);
+        }
+
+        function createMeanValueText() {
+            meanValueText = createTextSprite("0.000", { 
+                fontsize: 28, 
+                fontface: "Arial",
+                textColor: { r:255, g:170, b:0, a:1.0 }
+            });
+            meanValueText.position.set(0, rodYPosition - 1.5, 0);
+            scene.add(meanValueText);
+        }
+
+        // MODIFIED: Calculates probability once, creates a smaller sprite.
+        function createProbabilityText() {
+            // Calculate the fixed probability since circles cannot cross the 'a' boundary.
+            let probabilitySum = 0;
+            circleData.forEach(data => {
+                if (data.zone === 'right') { // 'right' zone is x >= 1
+                    probabilitySum += data.mass;
+                }
+            });
+
+            const probText = `P[X ≥ 1] = ${probabilitySum.toFixed(3)}`;
+            
+            probabilityText = createTextSprite(probText, {
+                fontsize: 24, // Reduced font size for a less intrusive look
+                fontface: "Arial",
+                textColor: { r:90, g:196, b:142, a:1.0 }
+            });
+
+            // 90	196	142
+            // Apply an additional scaling factor to make the sprite smaller.
+            probabilityText.scale.multiplyScalar(0.5); 
+            
+            scene.add(probabilityText);
+        }
+
+        // --- HELPER FUNCTIONS ---
+
+        function createTextSprite(message, parameters) {
+            const fontface = parameters.fontface || "Arial";
+            const fontsize = parameters.fontsize || 18;
+            const textColor = parameters.textColor || { r:255, g:255, b:255, a:1.0 };
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = `Bold ${fontsize}px ${fontface}`;
+            
+            const metrics = context.measureText(message);
+            const textWidth = metrics.width;
+            
+            canvas.width = textWidth + 8; // padding
+            canvas.height = fontsize + 8; // padding
+            
+            context.font = `Bold ${fontsize}px ${fontface}`;
+            context.fillStyle = `rgba(${textColor.r}, ${textColor.g}, ${textColor.b}, ${textColor.a})`;
+            context.fillText(message, 4, fontsize);
+
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(canvas.width / fontsize, canvas.height / fontsize, 1.0);
+            return sprite;
+        }
+
+        // --- UPDATE LOGIC ---
+
+        function updateCircleColor(circle) {
+            if (circle.position.x < a) {
+                circle.material.color.copy(blueColor);
+            } else {
+                circle.material.color.copy(greenColor);
+            }
+        }
+
+        // MODIFIED: No longer updates probability text content, only its position.
+        function updateWeightedSum() {
+            let sum = 0;
+            circleData.forEach(data => {
+                sum += data.mass * data.position.x;
+            });
+
+            // Update the orange line's position
+            const linePositions = weightedSumLine.geometry.attributes.position.array;
+            linePositions[0] = sum; // x1
+            linePositions[3] = sum; // x2
+            weightedSumLine.geometry.attributes.position.needsUpdate = true;
+            weightedSumLine.computeLineDistances();
+
+            // --- DYNAMICALLY UPDATE THE MEAN VALUE TEXT ---
+            meanValueText.position.x = sum;
+            const newText = sum.toFixed(3);
+            const parameters = { 
+                fontsize: 28, 
+                fontface: "Arial",
+                textColor: { r:255, g:170, b:0, a:1.0 }
+            };
+            if (meanValueText.material.map) meanValueText.material.map.dispose();
+            if (meanValueText.material) meanValueText.material.dispose();
+            const newSprite = createTextSprite(newText, parameters);
+            meanValueText.material = newSprite.material;
+            meanValueText.scale.copy(newSprite.scale);
+
+            // --- RE-POSITION THE STATIC PROBABILITY TEXT ---
+            // This ensures it stays in the corner even after a window resize.
+            const textWidth = probabilityText.scale.x;
+            const textHeight = probabilityText.scale.y;
+            const padding = 0.2; // Padding from the screen edge
+            probabilityText.position.set(
+                camera.right - textWidth / 2 - padding,
+                camera.top - textHeight / 2 - padding,
+                0
+            );
+        }
+
+        // --- EVENT HANDLERS ---
+
+        // MODIFIED: Added call to updateWeightedSum to reposition UI elements on resize.
+        function onWindowResize() {
+            const aspect = window.innerWidth / window.innerHeight;
+            const viewHeight = 5;
+            const viewWidth = viewHeight * aspect;
+            const viewCenterX = 2.0;
+
+            camera.left = viewCenterX - viewWidth / 2;
+            camera.right = viewCenterX + viewWidth / 2;
+            camera.top = viewHeight / 2;
+            camera.bottom = -viewHeight / 2;
+            
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Update positions of UI elements that depend on camera size
+            updateWeightedSum();
+        }
+        
+        function getEventCoordinates(event) {
+            let x, y;
+            if (event.changedTouches && event.changedTouches.length > 0) {
+                x = event.changedTouches[0].clientX;
+                y = event.changedTouches[0].clientY;
+            } else {
+                x = event.clientX;
+                y = event.clientY;
+            }
+            return {x, y};
+        }
+
+        function onMouseDown(event) {
+            event.preventDefault();
+            const coords = getEventCoordinates(event);
+            
+            mouse.x = (coords.x / window.innerWidth) * 2 - 1;
+            mouse.y = -(coords.y / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(circles);
+
+            if (intersects.length > 0) {
+                draggedObject = intersects[0].object;
+                const worldCoords = new THREE.Vector3(mouse.x, mouse.y, 0).unproject(camera);
+                dragOffset.copy(worldCoords).sub(draggedObject.position);
+                renderer.domElement.style.cursor = 'grabbing';
+            }
+        }
+
+        function onMouseMove(event) {
+            event.preventDefault();
+            const coords = getEventCoordinates(event);
+
+            mouse.x = (coords.x / window.innerWidth) * 2 - 1;
+            mouse.y = -(coords.y / window.innerHeight) * 2 + 1;
+            
+            const worldCoords = new THREE.Vector3(mouse.x, mouse.y, 0).unproject(camera);
+
+            if (draggedObject) {
+                let newX = worldCoords.x - dragOffset.x;
+
+                const zone = draggedObject.userData.dataRef.zone;
+                const epsilon = 0.0001; 
+
+                if (zone === 'left') {
+                    newX = Math.min(newX, 0 - epsilon);
+                } else if (zone === 'middle') {
+                    newX = Math.max(newX, 0 + epsilon);
+                    newX = Math.min(newX, a - epsilon); // 'a' is now 1.0
+                } else if (zone === 'right') {
+                    newX = Math.max(newX, a + epsilon); // 'a' is now 1.0
+                }
+                
+                draggedObject.position.x = newX;
+                draggedObject.userData.dataRef.position.x = newX;
+                
+                updateCircleColor(draggedObject);
+                updateWeightedSum();
+
+            } else {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(circles);
+                renderer.domElement.style.cursor = intersects.length > 0 ? 'grab' : 'default';
+            }
+        }
+
+        function onMouseUp(event) {
+            event.preventDefault();
+            if (draggedObject) {
+                draggedObject = null;
+                renderer.domElement.style.cursor = 'grab';
+            }
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        // --- START ---
+        init();
+
+    </script>
+</body>
+</html>
