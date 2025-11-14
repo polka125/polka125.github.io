@@ -3,30 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Counter</title>
+    <title>Efficiency Tools</title>
+    <!-- 
+        We are loading pdf-lib, which is the correct library for creating and modifying PDFs.
+        It will be available as a global variable named `PDFLib`.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+    <style>
+        /* Style for the container of the file list */
+        #fileListContainer {
+            margin-top: 1em;
+            border: 1px solid #ccc;
+            padding: 10px;
+            min-height: 50px;
+            background-color: #f9f9f9;
+        }
+        /* Style for each individual file item in the list */
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            background-color: #fff;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-name {
+            flex-grow: 1;
+            margin-right: 10px;
+            word-break: break-all;
+        }
+        .file-controls button {
+            margin-left: 5px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border: 1px solid #aaa;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+        }
+        .file-controls button:hover {
+            background-color: #e0e0e0;
+        }
+        .file-controls button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        /* Responsive adjustments for narrow screens */
+        @media (max-width: 600px) {
+            .file-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .file-controls {
+                margin-top: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
 
     <h1>Efficiency Tools</h1>
-    Here are some simple stateless tools which I find useful in my daily work.
+    <p>Here are some simple stateless tools which I find useful in my daily work.</p>
+
+    <!-- Navigation Menu -->
+    <div>
+        <strong>Quick Navigation:</strong>
+        <a href="#word-counter-section">Word Counter</a> | 
+        <a href="#pdf-merger-section">PDF Merger</a> |
+        <a href="#pdf-extractor-section">PDF Page Extractor</a>
+    </div>
     
     <hr>
 
-    <h1>Word and Character Counter</h1>
+    <!-- Word and Character Counter Section -->
+    <div id="word-counter-section">
+        <h1>Word and Character Counter</h1>
+        <p>Type or paste your text into the box below.</p>
+        <textarea id="textInput" rows="15" cols="60" oninput="updateCounts()"></textarea>
+        <h3>Results:</h3>
+        <p>Character Count: <span id="charCount">0</span></p>
+        <p>Word Count: <span id="wordCount">0</span></p>
+    </div>
 
-    <p>Type or paste your text into the box below.</p>
+    <hr>
 
-    <textarea id="textInput" rows="15" cols="60" oninput="updateCounts()"></textarea>
+    <!-- PDF Merger Section -->
+    <div id="pdf-merger-section">
+        <h1>PDF Merger</h1>
+        <p>Select multiple PDF files. You can reorder them using the 'Up' and 'Down' buttons before merging.</p>
+        
+        <div>
+            <label for="pdfFileInput">Select PDF Files:</label>
+            <input type="file" id="pdfFileInput" accept=".pdf" multiple>
+        </div>
+        
+        <!-- This container will hold the list of selected files -->
+        <div id="fileListContainer">
+            <p>No files selected.</p>
+        </div>
 
-    <h3>Results:</h3>
-    <p>
-        Character Count: <span id="charCount">0</span>
-    </p>
-    <p>
-        Word Count: <span id="wordCount">0</span>
-    </p>
+        <br>
+
+        <button id="mergeButton">Merge and Download PDFs</button>
+        <button id="clearButton">Clear All</button>
+
+        <p id="statusMessage"></p>
+    </div>
+
+    <hr>
+
+    <!-- PDF Page Extractor Section -->
+    <div id="pdf-extractor-section">
+        <h1>PDF Page Extractor</h1>
+        <p>Select a single PDF file and enter the pages or page ranges you want to extract.</p>
+        <p>For example: <strong>1, 3-5, 8</strong> will extract pages 1, 3, 4, 5, and 8.</p>
+
+        <div>
+            <label for="extractorFileInput">PDF File:</label>
+            <input type="file" id="extractorFileInput" accept=".pdf">
+        </div>
+
+        <br>
+
+        <div>
+            <label for="pageNumbersInput">Pages to Extract:</label>
+            <input type="text" id="pageNumbersInput" placeholder="e.g., 1, 3-5, 8">
+        </div>
+
+        <br>
+
+        <button id="extractButton">Extract and Download Pages</button>
+
+        <p id="extractorStatusMessage"></p>
+    </div>
+
 
     <script>
+        // --- SCRIPT FOR WORD AND CHARACTER COUNTER ---
         function updateCounts() {
             const text = document.getElementById('textInput').value;
             const charCountSpan = document.getElementById('charCount');
@@ -42,7 +158,210 @@
             charCountSpan.textContent = charCount;
             wordCountSpan.textContent = wordCount;
         }
+
+        // The pdf-lib library is loaded from the CDN and is available as a global variable: `PDFLib`
+        const { PDFDocument } = PDFLib;
+
+        /**
+         * Helper function to trigger a file download in the browser.
+         * This is a generic function used by both the merger and extractor.
+         */
+        function download(bytes, fileName, mimeType) {
+            const blob = new Blob([bytes], { type: mimeType });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        // --- SCRIPT FOR PDF MERGER ---
+        (function() {
+            const pdfFileInput = document.getElementById('pdfFileInput');
+            const fileListContainer = document.getElementById('fileListContainer');
+            const mergeButton = document.getElementById('mergeButton');
+            const clearButton = document.getElementById('clearButton');
+            const statusMessage = document.getElementById('statusMessage');
+
+            let pdfFiles = [];
+
+            function renderFileList() {
+                fileListContainer.innerHTML = '';
+                if (pdfFiles.length === 0) {
+                    fileListContainer.innerHTML = '<p>No files selected.</p>';
+                    return;
+                }
+                pdfFiles.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.setAttribute('data-index', index);
+                    const isFirst = index === 0;
+                    const isLast = index === pdfFiles.length - 1;
+                    fileItem.innerHTML = `
+                        <span class="file-name">${file.name}</span>
+                        <div class="file-controls">
+                            <button class="move-up" ${isFirst ? 'disabled' : ''}>Up</button>
+                            <button class="move-down" ${isLast ? 'disabled' : ''}>Down</button>
+                            <button class="remove-file">Remove</button>
+                        </div>
+                    `;
+                    fileListContainer.appendChild(fileItem);
+                });
+            }
+
+            pdfFileInput.addEventListener('change', (event) => {
+                pdfFiles.push(...Array.from(event.target.files));
+                renderFileList();
+                pdfFileInput.value = '';
+            });
+
+            fileListContainer.addEventListener('click', (event) => {
+                const target = event.target;
+                const fileItem = target.closest('.file-item');
+                if (!fileItem) return;
+                const index = parseInt(fileItem.getAttribute('data-index'), 10);
+                if (target.classList.contains('move-up')) {
+                    [pdfFiles[index], pdfFiles[index - 1]] = [pdfFiles[index - 1], pdfFiles[index]];
+                } else if (target.classList.contains('move-down')) {
+                    [pdfFiles[index], pdfFiles[index + 1]] = [pdfFiles[index + 1], pdfFiles[index]];
+                } else if (target.classList.contains('remove-file')) {
+                    pdfFiles.splice(index, 1);
+                }
+                renderFileList();
+            });
+
+            clearButton.addEventListener('click', () => {
+                pdfFiles = [];
+                renderFileList();
+                statusMessage.textContent = '';
+            });
+
+            async function mergePdfs() {
+                if (pdfFiles.length < 2) {
+                    statusMessage.textContent = 'Error: Please select at least two PDF files to merge.';
+                    return;
+                }
+                statusMessage.textContent = 'Processing... Please wait.';
+                try {
+                    const mergedPdf = await PDFDocument.create();
+                    for (const file of pdfFiles) {
+                        const pdfBytes = await file.arrayBuffer();
+                        const pdf = await PDFDocument.load(pdfBytes);
+                        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                        copiedPages.forEach(page => mergedPdf.addPage(page));
+                    }
+                    const mergedPdfBytes = await mergedPdf.save();
+                    download(mergedPdfBytes, "merged-document.pdf", "application/pdf");
+                    statusMessage.textContent = 'Merge complete! Your download should start automatically.';
+                } catch (error) {
+                    console.error('Error during PDF merge:', error);
+                    statusMessage.textContent = 'An error occurred. Please ensure all selected files are valid PDFs.';
+                }
+            }
+
+            mergeButton.addEventListener('click', mergePdfs);
+        })();
+
+
+        // --- SCRIPT FOR PDF EXTRACTOR ---
+        (function() {
+            const extractorFileInput = document.getElementById('extractorFileInput');
+            const pageNumbersInput = document.getElementById('pageNumbersInput');
+            const extractButton = document.getElementById('extractButton');
+            const extractorStatusMessage = document.getElementById('extractorStatusMessage');
+
+            /**
+             * Parses a string of page numbers (e.g., "1, 3-5, 8") into an array of 0-based indices.
+             * @param {string} pagesString The string to parse.
+             * @returns {number[]} A sorted array of unique, 0-based page indices.
+             * @throws {Error} if the format is invalid.
+             */
+            function parsePageNumbers(pagesString) {
+                const pageIndices = new Set();
+                if (!pagesString.trim()) {
+                    throw new Error('Page numbers cannot be empty.');
+                }
+                
+                const parts = pagesString.split(',');
+                for (const part of parts) {
+                    const trimmedPart = part.trim();
+                    if (trimmedPart.includes('-')) {
+                        const [start, end] = trimmedPart.split('-').map(num => parseInt(num, 10));
+                        if (isNaN(start) || isNaN(end) || start <= 0 || end <= 0 || start > end) {
+                            throw new Error(`Invalid page range: "${trimmedPart}"`);
+                        }
+                        for (let i = start; i <= end; i++) {
+                            pageIndices.add(i - 1); // Convert to 0-based index
+                        }
+                    } else {
+                        const pageNum = parseInt(trimmedPart, 10);
+                        if (isNaN(pageNum) || pageNum <= 0) {
+                            throw new Error(`Invalid page number: "${trimmedPart}"`);
+                        }
+                        pageIndices.add(pageNum - 1); // Convert to 0-based index
+                    }
+                }
+                return Array.from(pageIndices).sort((a, b) => a - b);
+            }
+
+            async function extractPages() {
+                if (extractorFileInput.files.length === 0) {
+                    extractorStatusMessage.textContent = 'Error: Please select a PDF file.';
+                    return;
+                }
+                
+                const pagesString = pageNumbersInput.value;
+                let pageIndices;
+
+                try {
+                    pageIndices = parsePageNumbers(pagesString);
+                } catch (error) {
+                    extractorStatusMessage.textContent = `Error: ${error.message}`;
+                    return;
+                }
+                
+                if (pageIndices.length === 0) {
+                    extractorStatusMessage.textContent = 'Error: Please specify which pages to extract.';
+                    return;
+                }
+
+                extractorStatusMessage.textContent = 'Processing... Please wait.';
+
+                try {
+                    const sourceFile = extractorFileInput.files[0];
+                    const pdfBytes = await sourceFile.arrayBuffer();
+                    const sourcePdf = await PDFDocument.load(pdfBytes);
+
+                    const maxPage = sourcePdf.getPageCount();
+                    for (const index of pageIndices) {
+                        if (index >= maxPage) {
+                            throw new Error(`Page number ${index + 1} is out of range. The document only has ${maxPage} pages.`);
+                        }
+                    }
+
+                    const extractedPdf = await PDFDocument.create();
+                    const copiedPages = await extractedPdf.copyPages(sourcePdf, pageIndices);
+                    copiedPages.forEach(page => extractedPdf.addPage(page));
+
+                    const extractedPdfBytes = await extractedPdf.save();
+                    const originalFileName = sourceFile.name.replace(/\.pdf$/i, '');
+                    download(extractedPdfBytes, `${originalFileName}-extracted.pdf`, "application/pdf");
+                    extractorStatusMessage.textContent = 'Extraction complete! Your download should start automatically.';
+
+                } catch (error) {
+                    console.error('Error during PDF extraction:', error);
+                    extractorStatusMessage.textContent = `An error occurred: ${error.message}`;
+                }
+            }
+
+            extractButton.addEventListener('click', extractPages);
+        })();
+
     </script>
+
+    <hr>
 
 </body>
 </html>
