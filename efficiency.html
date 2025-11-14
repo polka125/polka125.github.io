@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Counter</title>
+</head>
+<body>
+
+    <h1>Efficiency Tools</h1>
+    Here are some simple stateless tools which I find useful in my daily work.
+    
+    <hr>
+
+    <h1>Word and Character Counter</h1>
+
+    <p>Type or paste your text into the box below.</p>
+
+    <textarea id="textInput" rows="15" cols="60" oninput="updateCounts()"></textarea>
+
+    <h3>Results:</h3>
+    <p>
+        Character Count: <span id="charCount">0</span>
+    </p>
+    <p>
+        Word Count: <span id="wordCount">0</span>
+    </p>
+
+    <script>
+        function updateCounts() {
+            const text = document.getElementById('textInput').value;
+            const charCountSpan = document.getElementById('charCount');
+            const wordCountSpan = document.getElementById('wordCount');
+            const charCount = text.length;
+            const trimmedText = text.trim();
+        
+            let wordCount = 0;
+            if (trimmedText) {
+                const words = trimmedText.split(/\s+/);
+                wordCount = words.length;
+            }
+            charCountSpan.textContent = charCount;
+            wordCountSpan.textContent = wordCount;
+        }
+    </script>
+
+</body>
+</html>
