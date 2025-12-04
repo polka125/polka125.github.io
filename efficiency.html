@@ -62,6 +62,9 @@
             }
         }
     </style>
+
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+
 </head>
 <body>
 
@@ -73,7 +76,9 @@
         <strong>Quick Navigation:</strong>
         <a href="#word-counter-section">Word Counter</a> | 
         <a href="#pdf-merger-section">PDF Merger</a> |
-        <a href="#pdf-extractor-section">PDF Page Extractor</a>
+        <a href="#pdf-extractor-section">PDF Page Extractor</a> |
+        <a href="#fast-latex-section">FastLaTeX</a>
+
     </div>
     
     <hr>
@@ -359,9 +364,62 @@
             extractButton.addEventListener('click', extractPages);
         })();
 
+
+        (function() {
+        // Wait for the HTML to be fully parsed before running the script
+        document.addEventListener('DOMContentLoaded', () => {
+
+            window.MathJax = {
+                tex: {
+                inlineMath: [['$', '$'], ["\\(", "\\)"]],
+                processEscapes: true,
+                }
+            }
+            const latexInput = document.getElementById('latexInput');
+            const latexOutput = document.getElementById('latexOutput');
+
+            // Safety check: ensure elements exist before adding listeners
+            if (latexInput && latexOutput) {
+                latexInput.addEventListener('input', () => {
+                    // 1. Copy text from input to output as plain text
+                    latexOutput.textContent = latexInput.value;
+
+                    // 2. Ask MathJax to typeset the output container
+                    if (window.MathJax) {
+                        MathJax.typesetPromise([latexOutput])
+                            .catch((err) => console.log('MathJax error:', err));
+                    }
+                });
+            } else {
+                console.error("FastLaTeX Renderer: Could not find 'latexInput' or 'latexOutput' elements.");
+            }
+        });
+    })();
+
+
     </script>
 
     <hr>
+
+    <!-- FastLaTeX Section -->
+    <div id="fast-latex-section">
+        <h1>FastLaTeX Renderer</h1>
+        <p>Type LaTeX math expressions on the left. The result renders instantly on the right.</p>
+        <p><em>Example:</em> <code>$$x = {-b \pm \sqrt{b^2-4ac} \over 2a}$$</code></p>
+
+        <!-- Flex container for side-by-side layout -->
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start;">
+            <!-- Input Area -->
+            <textarea id="latexInput" style="flex: 1; min-width: 300px; padding: 10px;" rows="10" placeholder="Type LaTeX here..."></textarea>
+            
+            <!-- Output Area -->
+            <div id="latexOutput" style="flex: 1; min-width: 300px; border: 1px solid #ccc; padding: 10px; min-height: 200px; background-color: #fff;"></div>
+        </div>
+    </div>
+
+
+    <hr>
+
 
 </body>
 </html>
