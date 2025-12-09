@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Annulus Biholomorphism Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --accent-color: #4CAF50;
+            --domain-color: #3498db;
+            --codomain-color: #e74c3c;
+            --map-color: #f1c40f;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        p.subtitle {
+            font-size: 0.9rem;
+            color: #aaa;
+            max-width: 600px;
+            text-align: center;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 40px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        canvas {
+            background-color: #252525;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            cursor: crosshair;
+        }
+
+        .label {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .controls {
+            margin-top: 30px;
+            background-color: #2c2c2c;
+            padding: 20px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: #444;
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #66bb6a;
+        }
+
+        .status-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .match {
+            background-color: rgba(76, 175, 80, 0.2);
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .mismatch {
+            background-color: rgba(231, 76, 60, 0.2);
+            border: 1px solid var(--codomain-color);
+            color: var(--codomain-color);
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* Tooltip for points */
+        #tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Annulus Modulus Visualization</h1>
+    <p class="subtitle">
+        Visualizing why Annulus A(r₁) is not isomorphic to A(r₂) unless r₁ = r₂.<br>
+        Move your mouse over the Domain (Left) to see how points map to the Codomain (Right) under a rotation f(z) = e<sup>iθ</sup>z.
+    </p>
+
+    <div class="container">
+        <!-- Domain Canvas -->
+        <div class="canvas-wrapper">
+            <canvas id="domainCanvas" width="300" height="300"></canvas>
+            <div class="label" style="color: var(--domain-color)">Domain A(r₁)</div>
+        </div>
+
+        <!-- Codomain Canvas -->
+        <div class="canvas-wrapper">
+            <canvas id="codomainCanvas" width="300" height="300"></canvas>
+            <div class="label" style="color: var(--codomain-color)">Codomain A(r₂)</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>
+                <span>Inner Radius r₁ (Domain)</span>
+                <span id="r1-val">0.30</span>
+            </label>
+            <input type="range" id="r1-slider" min="0.05" max="0.90" step="0.01" value="0.30">
+        </div>
+
+        <div class="control-group">
+            <label>
+                <span>Inner Radius r₂ (Codomain)</span>
+                <span id="r2-val">0.60</span>
+            </label>
+            <input type="range" id="r2-slider" min="0.05" max="0.90" step="0.01" value="0.60">
+        </div>
+
+        <div class="control-group">
+            <label>
+                <span>Rotation θ (The Map)</span>
+                <span id="theta-val">0°</span>
+            </label>
+            <input type="range" id="theta-slider" min="0" max="360" step="1" value="0">
+        </div>
+
+        <div id="status" class="status-box mismatch">
+            Status: Not Isomorphic (r₁ ≠ r₂)
+        </div>
+
+        <div class="legend" style="justify-content: center; margin-top: 15px;">
+            <div class="legend-item"><div class="dot" style="background:white; border:1px solid #666"></div> Outer Boundary (|z|=1)</div>
+            <div class="legend-item"><div class="dot" style="background:var(--map-color)"></div> Mapped Point</div>
+        </div>
+    </div>
+
+    <div id="tooltip"></div>
+
+<script>
+    const domainCanvas = document.getElementById('domainCanvas');
+    const codomainCanvas = document.getElementById('codomainCanvas');
+    const ctxD = domainCanvas.getContext('2d');
+    const ctxC = codomainCanvas.getContext('2d');
+
+    const r1Slider = document.getElementById('r1-slider');
+    const r2Slider = document.getElementById('r2-slider');
+    const thetaSlider = document.getElementById('theta-slider');
+    
+    const r1Display = document.getElementById('r1-val');
+    const r2Display = document.getElementById('r2-val');
+    const thetaDisplay = document.getElementById('theta-val');
+    const statusBox = document.getElementById('status');
+
+    // Canvas settings
+    const width = 300;
+    const height = 300;
+    const center = width / 2;
+    const scale = 130; // 1 unit = 130 pixels
+
+    // State
+    let r1 = 0.3;
+    let r2 = 0.6;
+    let thetaDeg = 0;
+    let mousePos = { x: 0, y: 0, active: false }; // Normalized coordinates
+
+    function drawAnnulus(ctx, innerR, color, isTarget = false) {
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw Outer Circle (|z| = 1)
+        ctx.beginPath();
+        ctx.arc(center, center, 1 * scale, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Fill Annulus
+        ctx.beginPath();
+        ctx.arc(center, center, 1 * scale, 0, 2 * Math.PI); // Outer
+        ctx.arc(center, center, innerR * scale, 0, 2 * Math.PI, true); // Inner (counter-clockwise for hole)
+        ctx.fillStyle = color + '40'; // Add transparency
+        ctx.fill();
+
+        // Draw Inner Circle (|z| = r)
+        ctx.beginPath();
+        ctx.arc(center, center, innerR * scale, 0, 2 * Math.PI);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw Axes
+        ctx.beginPath();
+        ctx.moveTo(center, center - scale - 10);
+        ctx.lineTo(center, center + scale + 10);
+        ctx.moveTo(center - scale - 10, center);
+        ctx.lineTo(center + scale + 10, center);
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    function drawPoint(ctx, x, y, color, label) {
+        const px = center + x * scale;
+        const py = center - y * scale; // Canvas Y is inverted
+
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        if (label) {
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px Arial';
+            ctx.fillText(label, px + 8, py - 8);
+        }
+    }
+
+    function drawMapping() {
+        // 1. Draw Base Annuli
+        drawAnnulus(ctxD, r1, '#3498db');
+        drawAnnulus(ctxC, r2, '#e74c3c');
+
+        // 2. Handle Interaction
+        if (mousePos.active) {
+            // Calculate complex number z = x + iy
+            const z_x = mousePos.x;
+            const z_y = mousePos.y;
+            const modulus = Math.sqrt(z_x*z_x + z_y*z_y);
+
+            // Clamp point to be inside the domain annulus for visualization logic
+            // Or just show it and indicate if it's invalid
+            let isValid = modulus >= r1 && modulus <= 1;
+
+            // Draw point on Domain
+            drawPoint(ctxD, z_x, z_y, isValid ? '#f1c40f' : '#777', "z");
+
+            // Apply Rotation f(z) = e^(iθ)z
+            // Rotation matrix:
+            // x' = x cosθ - y sinθ
+            // y' = x sinθ + y cosθ
+            const rad = thetaDeg * Math.PI / 180;
+            const w_x = z_x * Math.cos(rad) - z_y * Math.sin(rad);
+            const w_y = z_x * Math.sin(rad) + z_y * Math.cos(rad);
+            const w_modulus = Math.sqrt(w_x*w_x + w_y*w_y);
+
+            // Check if mapped point lands in Codomain
+            let landsInCodomain = w_modulus >= r2 && w_modulus <= 1;
+
+            // Draw point on Codomain
+            // If r1 != r2, points on the boundary of r1 will map to radius r1 in the codomain.
+            // If r1 != r2, this point will NOT be on the boundary of r2.
+            drawPoint(ctxC, w_x, w_y, landsInCodomain ? '#f1c40f' : '#777', "f(z)");
+
+            // Visual cue for the mismatch
+            if (isValid && Math.abs(modulus - r1) < 0.02) {
+                // User is hovering the inner boundary of Domain
+                ctxD.strokeStyle = '#fff';
+                ctxD.lineWidth = 2;
+                ctxD.beginPath();
+                ctxD.arc(center, center, r1 * scale, 0, 2 * Math.PI);
+                ctxD.stroke();
+
+                // Show where it lands in Codomain
+                ctxC.strokeStyle = '#f1c40f'; // Yellow warning
+                ctxC.lineWidth = 2;
+                ctxC.beginPath();
+                ctxC.arc(center, center, w_modulus * scale, 0, 2 * Math.PI);
+                ctxC.stroke();
+                
+                // If it doesn't match r2
+                if (Math.abs(w_modulus - r2) > 0.01) {
+                    ctxC.fillStyle = '#e74c3c';
+                    ctxC.fillText("Mismatch!", center - 25, center + 5);
+                }
+            }
+        }
+    }
+
+    function updateStatus() {
+        const diff = Math.abs(r1 - r2);
+        if (diff < 0.01) {
+            statusBox.className = "status-box match";
+            statusBox.innerHTML = "Status: Isomorphic (r₁ ≈ r₂)<br><small>The boundaries align perfectly.</small>";
+        } else {
+            statusBox.className = "status-box mismatch";
+            statusBox.innerHTML = `Status: Not Isomorphic (r₁ ≠ r₂)<br><small>Inner boundary of Domain maps to radius ${r1.toFixed(2)}, but Codomain inner radius is ${r2.toFixed(2)}.</small>`;
+        }
+    }
+
+    function update() {
+        r1 = parseFloat(r1Slider.value);
+        r2 = parseFloat(r2Slider.value);
+        thetaDeg = parseFloat(thetaSlider.value);
+
+        r1Display.textContent = r1.toFixed(2);
+        r2Display.textContent = r2.toFixed(2);
+        thetaDisplay.textContent = thetaDeg + "°";
+
+        updateStatus();
+        drawMapping();
+    }
+
+    // Event Listeners
+    r1Slider.addEventListener('input', update);
+    r2Slider.addEventListener('input', update);
+    thetaSlider.addEventListener('input', update);
+
+    // Mouse tracking on Domain Canvas
+    domainCanvas.addEventListener('mousemove', (e) => {
+        const rect = domainCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Convert pixel to normalized coordinates
+        mousePos.x = (x - center) / scale;
+        mousePos.y = -(y - center) / scale; // Invert Y
+        mousePos.active = true;
+        drawMapping();
+    });
+
+    domainCanvas.addEventListener('mouseleave', () => {
+        mousePos.active = false;
+        drawMapping();
+    });
+
+    // Initial draw
+    update();
+
+</script>
+</body>
+</html>

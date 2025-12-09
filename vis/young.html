@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Young Tableaux Explorer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        input[type="number"] {
+            padding: 8px;
+            font-size: 16px;
+            width: 60px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #results-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .tableau-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            min-width: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .partition-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #7f8c8d;
+        }
+        .tableau-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .tableau-row {
+            display: flex;
+            gap: 2px;
+        }
+        .cell {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #2c3e50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            background-color: #ecf0f1;
+        }
+        .explanation {
+            margin-top: 30px;
+            background: #e8f6f3;
+            padding: 15px;
+            border-left: 5px solid #1abc9c;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Young Tableaux Generator</h1>
+
+    <div class="controls">
+        <label for="n-input">Enter n (1-7): </label>
+        <input type="number" id="n-input" min="1" max="7" value="4">
+        <button onclick="generateTableaux()">Generate</button>
+    </div>
+
+    <div id="results-area"></div>
+
+    <div class="explanation">
+        <h3>What are you seeing?</h3>
+        <p>For the number <strong>n</strong> you selected, the cards above show:</p>
+        <ul>
+            <li><strong>Partition:</strong> One way to break n into a sum of integers.</li>
+            <li><strong>Shape:</strong> The Young Diagram corresponding to that partition.</li>
+            <li><strong>Filling:</strong> One valid <em>Standard Young Tableau</em>. Notice how numbers increase across every row and down every column.</li>
+        </ul>
+    </div>
+
+    <script>
+        function generateTableaux() {
+            const n = parseInt(document.getElementById('n-input').value);
+            const container = document.getElementById('results-area');
+            container.innerHTML = '';
+
+            if (n < 1 || n > 8) {
+                container.innerHTML = '<p style="color:red">Please enter a number between 1 and 7 (computation grows rapidly).</p>';
+                return;
+            }
+
+            const partitions = getPartitions(n);
+
+            partitions.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'tableau-card';
+
+                const label = document.createElement('div');
+                label.className = 'partition-label';
+                label.innerText = `Partition: ${p.join(" + ")}`;
+                card.appendChild(label);
+
+                const grid = document.createElement('div');
+                grid.className = 'tableau-grid';
+                
+                // Generate one valid SYT for this shape
+                const filling = generateSYT(p, n);
+
+                filling.forEach(rowVals => {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'tableau-row';
+                    rowVals.forEach(val => {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.innerText = val;
+                        rowDiv.appendChild(cell);
+                    });
+                    grid.appendChild(rowDiv);
+                });
+
+                card.appendChild(grid);
+                container.appendChild(card);
+            });
+        }
+
+        // Helper to get integer partitions of n
+        function getPartitions(n, max = n) {
+            if (n === 0) return [[]];
+            let result = [];
+            for (let i = Math.min(n, max); i >= 1; i--) {
+                let subPartitions = getPartitions(n - i, i);
+                subPartitions.forEach(sub => {
+                    result.push([i, ...sub]);
+                });
+            }
+            return result;
+        }
+
+        // A simple backtracking algorithm to find ONE valid SYT for a shape
+        function generateSYT(shape, n) {
+            // Create empty grid structure
+            let grid = shape.map(len => new Array(len).fill(0));
+            let used = new Set();
+            
+            function solve(num) {
+                if (num > n) return true; // All numbers placed
+
+                // Try to place 'num' in the first available valid spot
+                for (let r = 0; r < grid.length; r++) {
+                    for (let c = 0; c < grid[r].length; c++) {
+                        if (grid[r][c] === 0) {
+                            // Check row constraint (left neighbor)
+                            if (c > 0 && grid[r][c-1] > num) continue; // Should not happen if filling 1..n sequentially
+                            
+                            // Check column constraint (top neighbor)
+                            if (r > 0 && (grid[r-1].length <= c || grid[r-1][c] === 0)) continue; // Must have a filled cell above
+                            
+                            // Place number
+                            grid[r][c] = num;
+                            if (solve(num + 1)) return true;
+                            
+                            // Backtrack
+                            grid[r][c] = 0;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            solve(1);
+            return grid;
+        }
+
+        // Initial load
+        generateTableaux();
+    </script>
+</body>
+</html>

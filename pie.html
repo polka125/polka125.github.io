@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>92/8 Pie Chart</title>
+    <style>
+        /* Reset and Center Everything */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            background-color: #ffffff;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* The Pie Chart Container */
+        .pie-chart {
+            /* Variable sizes for responsiveness */
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            position: relative;
+            
+            /* 
+               The Conic Gradient does the drawing.
+               Variables are set via JavaScript.
+            */
+            background: conic-gradient(
+                var(--color-a) 0% var(--percent), 
+                var(--color-b) var(--percent) 100%
+            );
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* The white hole in the middle (Donut style) */
+        .pie-chart::after {
+            content: "";
+            position: absolute;
+            width: 75%;  /* Thickness of the ring */
+            height: 75%;
+            background-color: #ffffff;
+            border-radius: 50%;
+            z-index: 1;
+        }
+
+        /* The text container sitting on top of the hole */
+        .chart-labels {
+            position: relative;
+            z-index: 2; /* Must be higher than ::after */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        /* Styling for the big number (92) */
+        .label-major {
+            font-size: 5rem;
+            font-weight: 800;
+            color: var(--color-a);
+            margin-bottom: 5px;
+        }
+
+        /* Styling for the small number (8) */
+        .label-minor {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--color-b);
+            opacity: 0.8;
+        }
+
+        /* Optional separator line */
+        .separator {
+            width: 40px;
+            height: 2px;
+            background-color: #ddd;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="pie-chart" id="myPieChart">
+        <div class="chart-labels">
+            <span class="label-major" id="val1"></span>
+            <div class="separator"></div>
+            <span class="label-minor" id="val2"></span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const value1 = 92;
+        const value2 = 8;
+        const color1 = '#2563eb'; // Bright Blue
+        const color2 = '#ef4444'; // Red
+
+        // Select elements
+        const chart = document.getElementById('myPieChart');
+        const text1 = document.getElementById('val1');
+        const text2 = document.getElementById('val2');
+
+        // Apply values to CSS variables for the gradient
+        chart.style.setProperty('--percent', `${value1}%`);
+        chart.style.setProperty('--color-a', color1);
+        chart.style.setProperty('--color-b', color2);
+
+        // Set the text numbers
+        text1.innerText = value1 + '%';
+        text2.innerText = value2 + '%';
+    </script>
+
+</body>
+</html>
