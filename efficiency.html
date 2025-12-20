@@ -77,6 +77,7 @@
         <a href="#word-counter-section">Word Counter</a> | 
         <a href="#pdf-merger-section">PDF Merger</a> |
         <a href="#pdf-extractor-section">PDF Page Extractor</a> |
+        <a href="#pdf-replacer-section">PDF Page Replacer</a> | 
         <a href="#fast-latex-section">FastLaTeX</a>
 
     </div>
@@ -365,6 +366,116 @@
         })();
 
 
+        // --- SCRIPT FOR PDF REPLACER ---
+// --- SCRIPT FOR PDF REPLACER ---
+        (function() {
+            function initReplacer() {
+                const replaceButton = document.getElementById('replaceButton');
+                // Safety check: if button is still missing, exit to avoid error
+                if (!replaceButton) return;
+
+                const basePdfInput = document.getElementById('basePdfInput');
+                const sourcePdfInput = document.getElementById('sourcePdfInput');
+                const basePageRange = document.getElementById('basePageRange');
+                const sourcePageRange = document.getElementById('sourcePageRange');
+                const statusMessage = document.getElementById('replacerStatusMessage');
+
+                function parsePageNumbers(pagesString) {
+                    const pageIndices = new Set();
+                    if (!pagesString || !pagesString.trim()) return [];
+                    
+                    const parts = pagesString.split(',');
+                    for (const part of parts) {
+                        const trimmedPart = part.trim();
+                        if (trimmedPart.includes('-')) {
+                            const [start, end] = trimmedPart.split('-').map(num => parseInt(num, 10));
+                            if (!isNaN(start) && !isNaN(end) && start > 0 && end > 0 && start <= end) {
+                                for (let i = start; i <= end; i++) pageIndices.add(i - 1);
+                            }
+                        } else {
+                            const pageNum = parseInt(trimmedPart, 10);
+                            if (!isNaN(pageNum) && pageNum > 0) pageIndices.add(pageNum - 1);
+                        }
+                    }
+                    return Array.from(pageIndices).sort((a, b) => a - b);
+                }
+
+                async function replacePages() {
+                    statusMessage.textContent = '';
+
+                    if (!basePdfInput.files[0] || !sourcePdfInput.files[0]) {
+                        statusMessage.textContent = 'Error: Please select both PDF files.';
+                        return;
+                    }
+
+                    const baseIndices = parsePageNumbers(basePageRange.value);
+                    const sourceIndices = parsePageNumbers(sourcePageRange.value);
+
+                    if (baseIndices.length === 0 || sourceIndices.length === 0) {
+                        statusMessage.textContent = 'Error: Please specify page numbers for both documents.';
+                        return;
+                    }
+
+                    if (baseIndices.length !== sourceIndices.length) {
+                        statusMessage.textContent = `Error: Mismatch in page counts. ${baseIndices.length} pages to replace vs ${sourceIndices.length} replacement pages.`;
+                        return;
+                    }
+
+                    statusMessage.textContent = 'Processing...';
+
+                    try {
+                        const baseBytes = await basePdfInput.files[0].arrayBuffer();
+                        const sourceBytes = await sourcePdfInput.files[0].arrayBuffer();
+
+                        const basePdf = await PDFDocument.load(baseBytes);
+                        const sourcePdf = await PDFDocument.load(sourceBytes);
+
+                        const basePageCount = basePdf.getPageCount();
+                        const sourcePageCount = sourcePdf.getPageCount();
+
+                        if (baseIndices.some(i => i >= basePageCount)) throw new Error("Base page number out of range.");
+                        if (sourceIndices.some(i => i >= sourcePageCount)) throw new Error("Source page number out of range.");
+
+                        // Copy pages from Source
+                        const copiedPages = await basePdf.copyPages(sourcePdf, sourceIndices);
+
+                        // Map Base Index to Copied Page
+                        const operations = baseIndices.map((baseIdx, i) => ({
+                            baseIdx: baseIdx,
+                            newPage: copiedPages[i]
+                        }));
+
+                        // Sort by base index descending to prevent index shifting issues during replacement
+                        operations.sort((a, b) => b.baseIdx - a.baseIdx);
+
+                        for (const op of operations) {
+                            basePdf.removePage(op.baseIdx);
+                            basePdf.insertPage(op.baseIdx, op.newPage);
+                        }
+
+                        const modifiedPdfBytes = await basePdf.save();
+                        download(modifiedPdfBytes, "modified-document.pdf", "application/pdf");
+                        statusMessage.textContent = 'Success! Download started.';
+
+                    } catch (error) {
+                        console.error(error);
+                        statusMessage.textContent = `Error: ${error.message}`;
+                    }
+                }
+
+                // Use onclick to ensure we don't attach multiple listeners if init runs twice
+                replaceButton.onclick = replacePages;
+            }
+
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initReplacer);
+            } else {
+                initReplacer();
+            }
+        })();
+
+
         (function() {
         // Wait for the HTML to be fully parsed before running the script
         document.addEventListener('DOMContentLoaded', () => {
@@ -401,6 +512,43 @@
 
     <hr>
 
+    <!-- PDF Page Replacer Section -->
+    <div id="pdf-replacer-section">
+        <h1>PDF Page Replacer</h1>
+        <p>Replace specific pages in a <strong>Base Document</strong> with pages from a <strong>Source Document</strong>.</p>
+        <p><em>Note: The number of pages selected in both inputs must match. Logic: Base[i] is replaced by Source[i].</em></p>
+
+        <!-- Flex container for side-by-side file selection on larger screens -->
+        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+            
+            <!-- Left Side: Base Document -->
+            <div style="flex: 1; min-width: 300px; padding: 15px; border: 1px solid #ddd; background: #fff;">
+                <h3>1. Base Document (To be modified)</h3>
+                <label>Select File:</label><br>
+                <input type="file" id="basePdfInput" accept=".pdf"><br><br>
+                
+                <label>Pages to Replace (e.g., 1, 3-5):</label><br>
+                <input type="text" id="basePageRange" placeholder="e.g., 2, 8" style="width: 100%; box-sizing: border-box;">
+            </div>
+
+            <!-- Right Side: Source Document -->
+            <div style="flex: 1; min-width: 300px; padding: 15px; border: 1px solid #ddd; background: #fff;">
+                <h3>2. Source Document (Replacement pages)</h3>
+                <label>Select File:</label><br>
+                <input type="file" id="sourcePdfInput" accept=".pdf"><br><br>
+                
+                <label>Replacement Pages (e.g., 1, 2-4):</label><br>
+                <input type="text" id="sourcePageRange" placeholder="e.g., 1, 5" style="width: 100%; box-sizing: border-box;">
+            </div>
+        </div>
+
+        <br>
+        <button id="replaceButton">Replace and Download</button>
+        <p id="replacerStatusMessage"></p>
+    </div>
+
+
+    <hr>
     <!-- FastLaTeX Section -->
     <div id="fast-latex-section">
         <h1>FastLaTeX Renderer</h1>
