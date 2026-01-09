@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Drawing Board</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling */
+            font-family: sans-serif;
+        }
+
+        #toolbar {
+            background: #f0f0f0;
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 5px 15px;
+            cursor: pointer;
+            border: 1px solid #999;
+            background: white;
+        }
+
+        button.active {
+            background: #ddd;
+            font-weight: bold;
+            border-color: #333;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <button id="drawBtn" class="active">Draw</button>
+        <button id="eraseBtn">Erase</button>
+        <!-- Simple color picker just for the drawing tool -->
+        <input type="color" id="colorPicker" value="#000000">
+    </div>
+
+    <canvas id="board"></canvas>
+
+    <script>
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        const drawBtn = document.getElementById('drawBtn');
+        const eraseBtn = document.getElementById('eraseBtn');
+        const colorPicker = document.getElementById('colorPicker');
+
+        // State variables
+        let isDrawing = false;
+        let mode = 'draw'; // 'draw' or 'erase'
+        let lastX = 0;
+        let lastY = 0;
+
+        // Resize canvas to fill the window (minus the toolbar)
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - document.getElementById('toolbar').offsetHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initial call
+
+        // Tool switching logic
+        drawBtn.addEventListener('click', () => {
+            mode = 'draw';
+            drawBtn.classList.add('active');
+            eraseBtn.classList.remove('active');
+        });
+
+        eraseBtn.addEventListener('click', () => {
+            mode = 'erase';
+            eraseBtn.classList.add('active');
+            drawBtn.classList.remove('active');
+        });
+
+        // Drawing Event Listeners
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+        });
+
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseout', () => isDrawing = false);
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(e.offsetX, e.offsetY);
+            
+            // Style settings based on mode
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            if (mode === 'draw') {
+                ctx.strokeStyle = colorPicker.value;
+                ctx.lineWidth = 2;
+            } else {
+                ctx.strokeStyle = '#FFFFFF'; // White to erase
+                ctx.lineWidth = 20; // Eraser is thicker
+            }
+
+            ctx.stroke();
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+        }
+    </script>
+</body>
+</html>

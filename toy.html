@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Canvas Presentation with Spotlight</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+            user-select: none;
+            cursor: none; /* Hide default cursor for better immersion */
+        }
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: white;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            color: #ccc;
+            font-size: 16px;
+            pointer-events: none;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="presentationCanvas" width="800" height="600"></canvas>
+    <div class="instructions">Move Mouse to use Spotlight | Left Click: Previous | Right Click/Space: Next</div>
+
+    <script>
+        const canvas = document.getElementById('presentationCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let currentSlide = 0;
+        const totalSlides = 3;
+
+        // --- Animation State Variables ---
+        let sunAngle = 0;
+        let globalTime = 0;
+        
+        // Transition Variables
+        let isTransitioning = false;
+        let transitionProgress = 0; 
+
+        // Mouse Spotlight Variables
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+
+        // Generate random clouds once
+        const clouds = [
+            { x: 50, y: 50, scale: 1.0, speed: 0.2 },
+            { x: 400, y: 80, scale: 0.8, speed: 0.15 },
+            { x: 700, y: 40, scale: 1.2, speed: 0.25 }
+        ];
+
+        // Generate random stars once
+        const stars = [];
+        for(let i=0; i<50; i++) {
+            stars.push({
+                x: Math.random() * 800,
+                y: Math.random() * 400,
+                size: Math.random() * 2 + 1,
+                offset: Math.random() * 100 
+            });
+        }
+
+        // --- Drawing Helpers ---
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function interpolateColor(color1, color2, t) {
+            const r = Math.round(color1[0] + (color2[0] - color1[0]) * t);
+            const g = Math.round(color1[1] + (color2[1] - color1[1]) * t);
+            const b = Math.round(color1[2] + (color2[2] - color1[2]) * t);
+            return `rgb(${r},${g},${b})`;
+        }
+
+        function drawSky(type, transitionT = 0) {
+            const dayTop = [96, 165, 250]; // #60a5fa
+            const dayBot = [191, 219, 254]; // #bfdbfe
+            const nightTop = [15, 23, 42];  // #0f172a
+            const nightBot = [49, 46, 129]; // #312e81
+
+            let topColor, botColor;
+
+            if (type === 'day') {
+                topColor = `rgb(${dayTop.join(',')})`;
+                botColor = `rgb(${dayBot.join(',')})`;
+            } else if (type === 'night') {
+                topColor = `rgb(${nightTop.join(',')})`;
+                botColor = `rgb(${nightBot.join(',')})`;
+            } else if (type === 'mix') {
+                topColor = interpolateColor(dayTop, nightTop, transitionT);
+                botColor = interpolateColor(dayBot, nightBot, transitionT);
+            }
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.7);
+            gradient.addColorStop(0, topColor);
+            gradient.addColorStop(1, botColor);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawGround() {
+            ctx.fillStyle = "#22c55e"; // Green
+            ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+        }
+
+        function drawCloud(x, y, scale, opacity = 1) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.8 * opacity})`;
+            ctx.beginPath();
+            ctx.arc(0, 0, 30, 0, Math.PI * 2);
+            ctx.arc(25, -10, 35, 0, Math.PI * 2);
+            ctx.arc(50, 0, 30, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawSun(angle, x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Sun Body
+            ctx.beginPath();
+            ctx.arc(0, 0, 40, 0, Math.PI * 2);
+            ctx.fillStyle = "#fbbf24"; 
+            ctx.fill();
+            
+            // Rays
+            ctx.strokeStyle = "#fbbf24";
+            ctx.lineWidth = 4;
+            for(let i = 0; i < 8; i++) {
+                ctx.beginPath();
+                const rayAngle = (i * Math.PI * 2) / 8;
+                const startX = Math.cos(rayAngle) * 50;
+                const startY = Math.sin(rayAngle) * 50;
+                const endX = Math.cos(rayAngle) * 70;
+                const endY = Math.sin(rayAngle) * 70;
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawStars(opacityMultiplier = 1) {
+            ctx.fillStyle = "white";
+            stars.forEach(star => {
+                const twinkle = 0.5 + 0.5 * Math.sin((globalTime * 0.05) + star.offset);
+                ctx.globalAlpha = twinkle * opacityMultiplier;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI*2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0; 
+        }
+
+        function drawMoon(x, y) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, 40, 0, Math.PI * 2);
+            ctx.fillStyle = "#f3f4f6"; 
+            ctx.shadowColor = "white";
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+            
+            // Craters
+            ctx.fillStyle = "#d1d5db";
+            ctx.beginPath(); ctx.arc(x - 10, y - 10, 5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + 10, y + 10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x - 20, y + 15, 4, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawHouse(lightIntensity) {
+            const houseX = 300;
+            const houseY = canvas.height * 0.7 - 150; 
+            const houseW = 200;
+            const houseH = 150;
+
+            ctx.fillStyle = "#b91c1c"; 
+            ctx.fillRect(houseX, houseY, houseW, houseH);
+
+            ctx.beginPath();
+            ctx.moveTo(houseX - 20, houseY);
+            ctx.lineTo(houseX + houseW / 2, houseY - 100);
+            ctx.lineTo(houseX + houseW + 20, houseY);
+            ctx.closePath();
+            ctx.fillStyle = "#374151"; 
+            ctx.fill();
+
+            ctx.fillStyle = "#78350f"; 
+            ctx.fillRect(houseX + 80, houseY + 80, 40, 70);
+            ctx.fillStyle = "#fbbf24";
+            ctx.beginPath();
+            ctx.arc(houseX + 112, houseY + 115, 3, 0, Math.PI*2);
+            ctx.fill();
+
+            const winX = houseX + 20;
+            const winY = houseY + 30;
+            const winSize = 50;
+
+            // Window Logic
+            ctx.save();
+            ctx.fillStyle = "#93c5fd"; 
+            ctx.fillRect(winX, winY, winSize, winSize);
+
+            if (lightIntensity > 0) {
+                ctx.fillStyle = `rgba(254, 240, 138, ${lightIntensity})`; // #fef08a
+                ctx.shadowColor = "#fef08a";
+                ctx.shadowBlur = 20 * lightIntensity;
+                ctx.fillRect(winX, winY, winSize, winSize);
+            }
+            ctx.restore(); 
+
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(winX, winY, winSize, winSize);
+            ctx.beginPath();
+            ctx.moveTo(winX + winSize/2, winY);
+            ctx.lineTo(winX + winSize/2, winY + winSize);
+            ctx.moveTo(winX, winY + winSize/2);
+            ctx.lineTo(winX + winSize, winY + winSize/2);
+            ctx.stroke();
+        }
+
+        function drawText(text, x, y, size = "30px", color = "black", align = "center") {
+            ctx.fillStyle = color;
+            ctx.font = `bold ${size} Arial`;
+            ctx.textAlign = align;
+            ctx.fillText(text, x, y);
+        }
+
+        // --- NEW: Spotlight Function ---
+        function drawSpotlight(darknessOpacity) {
+            // Create a radial gradient centered at the mouse
+            // Inner radius 0, Outer radius 200
+            const gradient = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 200);
+            
+            // The center is transparent (the "light")
+            gradient.addColorStop(0, `rgba(0, 0, 0, 0)`);
+            gradient.addColorStop(0.2, `rgba(0, 0, 0, 0)`);
+            
+            // The edges are dark
+            gradient.addColorStop(1, `rgba(0, 0, 0, ${darknessOpacity})`);
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // --- Slide Renderers ---
+
+        function renderSlide1() {
+            drawSky('day'); 
+            
+            clouds.forEach(cloud => {
+                drawCloud(cloud.x, cloud.y, cloud.scale);
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + 100) cloud.x = -100;
+            });
+
+            drawSun(sunAngle, 100, 100); 
+            drawGround();
+            drawHouse(0); 
+            
+            // Signpost
+            ctx.fillStyle = "#854d0e";
+            ctx.fillRect(600, 350, 10, 100); 
+            ctx.fillStyle = "#fef3c7";
+            ctx.fillRect(550, 300, 110, 60); 
+            ctx.strokeStyle = "#854d0e";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(550, 300, 110, 60);
+            
+            drawText("LOAN", 605, 340, "24px", "#b45309", "center");
+            drawText("APPROVED", 605, 355, "12px", "green", "center");
+
+            drawText("Slide 1: A New Beginning", canvas.width/2, 50, "30px", "#1e3a8a");
+        }
+
+        function renderSlide2() {
+            drawSky('night'); 
+            drawStars(); 
+            
+            const floatY = Math.sin(globalTime * 0.02) * 5; 
+            drawMoon(700, 100 + floatY);
+
+            drawGround();
+            drawHouse(1); 
+
+            drawText("Slide 2: Home Sweet Home", canvas.width/2, 50, "30px", "white");
+        }
+
+        function renderSlide3() {
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, "#111827");
+            gradient.addColorStop(1, "#374151");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const floatOffset = Math.sin(globalTime * 0.05) * 10;
+            drawText("CREDITS", canvas.width/2, (canvas.height/2 - 40) + floatOffset, "60px", "white", "center");
+            drawText("Created by Gemini 3 pro", canvas.width/2, (canvas.height/2 + 40) + floatOffset, "30px", "#38bdf8", "center");
+        }
+
+        function renderTransition(t) {
+            drawSky('mix', t);
+
+            if (t < 0.5) {
+                clouds.forEach(cloud => {
+                    drawCloud(cloud.x, cloud.y, cloud.scale, 1 - (t * 2));
+                });
+            }
+
+            if(t > 0.3) drawStars((t - 0.3) * 1.5);
+
+            const sunY = 100 + (t * 600);
+            const moonY = 700 - (t * 600);
+
+            drawSun(sunAngle, 100, sunY);
+            drawMoon(700, moonY);
+
+            drawGround();
+            
+            let lightIntensity = 0;
+            if (t > 0.7) {
+                lightIntensity = (t - 0.7) * 3.33;
+                if (lightIntensity > 1) lightIntensity = 1;
+            }
+            drawHouse(lightIntensity); 
+        }
+
+        // --- Main Animation Loop ---
+
+        function animate() {
+            clearCanvas();
+            sunAngle += 0.01; 
+            globalTime += 1;
+
+            let spotlightDarkness = 0;
+
+            // 1. UPDATE STATE
+            if (isTransitioning) {
+                transitionProgress += 0.025; 
+                if (transitionProgress >= 1) {
+                    isTransitioning = false;
+                    currentSlide = 1; 
+                    transitionProgress = 0;
+                }
+            }
+
+            // 2. RENDER SCENE
+            if (isTransitioning) {
+                renderTransition(transitionProgress);
+                // Interpolate darkness from Day (0.2) to Night (0.85)
+                spotlightDarkness = 0.2 + (transitionProgress * 0.65);
+            } else {
+                if (currentSlide === 0) {
+                    renderSlide1();
+                    spotlightDarkness = 0.2; // Day: subtle shadow
+                }
+                else if (currentSlide === 1) {
+                    renderSlide2();
+                    spotlightDarkness = 0.85; // Night: strong flashlight
+                }
+                else if (currentSlide === 2) {
+                    renderSlide3();
+                    spotlightDarkness = 0.9; // Credits: dramatic
+                }
+            }
+
+            // 3. APPLY SPOTLIGHT OVERLAY
+            drawSpotlight(spotlightDarkness);
+
+            requestAnimationFrame(animate);
+        }
+
+        function nextSlide() {
+            if (isTransitioning) return; 
+
+            if (currentSlide === 0) {
+                isTransitioning = true;
+                transitionProgress = 0;
+            } else if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+            }
+        }
+
+        function prevSlide() {
+            if (isTransitioning) return;
+
+            if (currentSlide === 1) {
+                currentSlide--;
+            } else if (currentSlide > 0) {
+                currentSlide--;
+            }
+        }
+
+        // --- Event Listeners ---
+
+        // Track mouse position relative to canvas
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        window.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        window.addEventListener('mousedown', (e) => {
+            if (e.button === 2) {
+                nextSlide();
+            } else if (e.button === 0) {
+                prevSlide();
+            }
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault(); 
+                nextSlide();
+            }
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>

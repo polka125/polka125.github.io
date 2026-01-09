@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated Canvas Presentation with Spotlight</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+            user-select: none;
+            cursor: none; /* Hide default cursor for better immersion */
+        }
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: white;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            color: #ccc;
+            font-size: 16px;
+            pointer-events: none;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="presentationCanvas" width="800" height="600"></canvas>
+
+    <script>
+
+        function loadShader(gl, type, source) {
+            var shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            var compiled = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+            return shader;
+        }
+
+        function createProgram(gl, vshader, fshader) {
+            var vertexShader = loadShader(gl, gl.VERTEX_SHADER, vshader);
+            var fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fshader);
+            var program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            var linked = gl.getProgramParameter(program, gl.LINK_STATUS);
+            console.log("linked" + linked);
+            return program;
+        }
+
+
+        function initShaders(gl, vshader, fshader) {
+            var program = createProgram(gl, vshader, fshader);
+            gl.useProgram(program);
+            gl.program = program;
+            return true;
+        }
+
+
+        const canvas = document.getElementById('presentationCanvas');
+        const gl = canvas.getContext('webgl');
+        if (!gl) {
+            console.log("ERROR: could not initialize gl context.")
+        }
+        var VSHADER_SOURCE = 
+        'attribute vec4 a_Position;\n' +
+        'void main() {\n' + 
+        '   gl_Position = a_Position;\n' + 
+        '   gl_PointSize = 10.0;\n' + 
+        '}\n';
+
+        var FSHADER_SOURCE =  
+        'void main() {\n' + 
+        '   gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n' + 
+        '}\n';
+        
+        let err = initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE);
+        if (!err) {
+            console.log("failed to initialize shaders");
+        }
+
+        var a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+        if (a_Position < 0) {
+            console.log('could not get a_Position');
+        }
+
+        var g_points = [];
+
+        function handle_click(ev, gl, canvas, a_Position) {
+            var x = ev.clientX;
+            var y = ev.clientY;
+            var rect = ev.target.getBoundingClientRect();
+
+            // to clip space 
+            let h = canvas.height;
+            let w = canvas.width; 
+            x = (x - rect.left - h / 2) / (h / 2);
+            y = -(y - rect.top - w / 2) / (w / 2);
+
+            g_points.push(x);
+            g_points.push(y);
+        }
+
+        canvas.onmousedown = function(ev) {
+            handle_click(ev, gl, canvas, a_Position);
+        }
+
+        gl.vertexAttrib3f(a_Position, 0.5, 0.0, 0.0);
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        gl.drawArrays(gl.POINT, 0, 1);
+    </script>
+</body>
+</html>
