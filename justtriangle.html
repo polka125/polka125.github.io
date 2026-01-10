@@ -10,13 +10,60 @@
             overflow: hidden;
             background-color: #222;
             display: flex;
-            justify-content: center;
-            align-items: center;
+            /* Changed from center/center to row layout to accommodate the panel */
+            flex-direction: row;
             height: 100vh;
             font-family: sans-serif;
             user-select: none;
-            cursor: crosshair; /* Changed to crosshair so you can see where you click */
+            cursor: crosshair; 
         }
+
+        /* New styles for the left panel */
+        #leftPanel {
+            width: 300px;
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #444;
+            cursor: default; /* Reset cursor for the panel */
+        }
+
+        #leftPanel h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #ddd;
+        }
+
+        #userInput {
+            width: 100%;
+            background-color: #444;
+            border: 1px solid #555;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+
+        #userInput:focus {
+            outline: none;
+            border-color: #777;
+        }
+
+        /* Container for the canvas to keep it centered in the remaining space */
+        #canvasContainer {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            background-color: #222;
+        }
+
         canvas {
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             background-color: white;
@@ -27,10 +74,17 @@
 </head>
 <body>
 
-    <canvas id="presentationCanvas" width="800" height="600"></canvas>
+    <!-- Left Panel Section -->
+    <div id="leftPanel">
+        <textarea id="userInput" placeholder="Input expression in z"></textarea>
+    </div>
+
+    <!-- Canvas Container -->
+    <div id="canvasContainer">
+        <canvas id="presentationCanvas" width="800" height="600"></canvas>
+    </div>
 
     <script src="./justtriangle.js"></script>
-
 
 </body>
 </html>
