@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Circuit Growth</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            box-shadow: 0 0 50px rgba(0, 255, 200, 0.1);
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border: 1px solid #00ffcc;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        STATUS: ROUTING TRACES<br>
+        SYSTEM: ONLINE
+    </div>
+    <canvas id="circuitCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('circuitCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        const gridSize = 10; // Size of the grid cells
+        let cols, rows;
+        let grid = []; // 2D array to track occupied cells
+        let tracers = []; // Active drawing heads
+        
+        // Configuration
+        const config = {
+            maxTracers: 50,
+            spawnRate: 0.1, // Chance to spawn a new tracer per frame
+            colors: ['#00ffcc', '#ff0055', '#ffff00', '#00ccff'],
+            bg: '#050505'
+        };
+
+        class Tracer {
+            constructor(x, y, hue) {
+                this.x = x;
+                this.y = y;
+                this.prevX = x;
+                this.prevY = y;
+                this.color = hue || config.colors[Math.floor(Math.random() * config.colors.length)];
+                this.life = 50 + Math.random() * 100; // How many steps it can take
+                this.dead = false;
+                
+                // 0: Up, 1: Right, 2: Down, 3: Left
+                this.dir = Math.floor(Math.random() * 4); 
+                this.turnChance = 0.1;
+            }
+
+            update() {
+                if (this.dead) return;
+
+                this.life--;
+                if (this.life <= 0) {
+                    this.die();
+                    return;
+                }
+
+                // Randomly decide to turn
+                if (Math.random() < this.turnChance) {
+                    // Turn left or right relative to current direction (90 degrees)
+                    this.dir = (this.dir + (Math.random() < 0.5 ? 1 : 3)) % 4;
+                }
+
+                // Determine next position based on direction
+                let nextX = this.x;
+                let nextY = this.y;
+
+                if (this.dir === 0) nextY--;
+                else if (this.dir === 1) nextX++;
+                else if (this.dir === 2) nextY++;
+                else if (this.dir === 3) nextX--;
+
+                // Check bounds and collisions
+                if (nextX < 0 || nextX >= cols || nextY < 0 || nextY >= rows || grid[nextX][nextY]) {
+                    // Try to find a valid direction
+                    const validDirs = [];
+                    // Check Up
+                    if (this.y > 0 && !grid[this.x][this.y - 1]) validDirs.push(0);
+                    // Check Right
+                    if (this.x < cols - 1 && !grid[this.x + 1][this.y]) validDirs.push(1);
+                    // Check Down
+                    if (this.y < rows - 1 && !grid[this.x][this.y + 1]) validDirs.push(2);
+                    // Check Left
+                    if (this.x > 0 && !grid[this.x - 1][this.y]) validDirs.push(3);
+
+                    if (validDirs.length > 0) {
+                        this.dir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                        // Don't move this frame, just turned to avoid wall
+                    } else {
+                        // No where to go
+                        this.die();
+                    }
+                } else {
+                    // Move
+                    this.prevX = this.x;
+                    this.prevY = this.y;
+                    this.x = nextX;
+                    this.y = nextY;
+                    
+                    // Mark grid
+                    grid[this.x][this.y] = true;
+                    
+                    this.draw();
+                }
+            }
+
+            draw() {
+                const px = this.prevX * gridSize;
+                const py = this.prevY * gridSize;
+                const cx = this.x * gridSize;
+                const cy = this.y * gridSize;
+
+                ctx.beginPath();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = gridSize / 2;
+                ctx.lineCap = 'square';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                
+                ctx.moveTo(px + gridSize/2, py + gridSize/2);
+                ctx.lineTo(cx + gridSize/2, cy + gridSize/2);
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset for performance
+            }
+
+            die() {
+                this.dead = true;
+                // Draw a "pad" or terminal point
+                const cx = this.x * gridSize + gridSize/2;
+                const cy = this.y * gridSize + gridSize/2;
+                
+                ctx.beginPath();
+                ctx.fillStyle = '#fff';
+                ctx.arc(cx, cy, gridSize/3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.arc(cx, cy, gridSize/1.5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        function init() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            cols = Math.ceil(width / gridSize);
+            rows = Math.ceil(height / gridSize);
+
+            // Initialize grid
+            grid = new Array(cols).fill(0).map(() => new Array(rows).fill(false));
+            
+            // Clear screen
+            ctx.fillStyle = config.bg;
+            ctx.fillRect(0, 0, width, height);
+            
+            tracers = [];
+        }
+
+        function spawnTracer() {
+            // Find a random empty spot
+            let attempts = 0;
+            let x, y;
+            do {
+                x = Math.floor(Math.random() * cols);
+                y = Math.floor(Math.random() * rows);
+                attempts++;
+            } while (grid[x][y] && attempts < 100);
+
+            if (!grid[x][y]) {
+                grid[x][y] = true;
+                tracers.push(new Tracer(x, y));
+                
+                // Draw start pad
+                const cx = x * gridSize + gridSize/2;
+                const cy = y * gridSize + gridSize/2;
+                ctx.fillStyle = tracers[tracers.length-1].color;
+                ctx.beginPath();
+                ctx.arc(cx, cy, gridSize/2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function animate() {
+            // Fade effect (optional, disabled here to keep permanent traces like a real PCB)
+            // To make it fade over time, uncomment below:
+            // ctx.fillStyle = 'rgba(5, 5, 5, 0.05)';
+            // ctx.fillRect(0, 0, width, height);
+
+            // Spawn new tracers
+            if (tracers.length < config.maxTracers && Math.random() < config.spawnRate) {
+                spawnTracer();
+            }
+
+            // Update and draw tracers
+            for (let i = tracers.length - 1; i >= 0; i--) {
+                tracers[i].update();
+                if (tracers[i].dead) {
+                    tracers.splice(i, 1);
+                }
+            }
+            
+            // Reset if full
+            if (tracers.length === 0 && Math.random() < 0.01) {
+                 // Check fill percentage roughly
+                 let filled = 0;
+                 // Sampling
+                 for(let k=0; k<100; k++) {
+                     if(grid[Math.floor(Math.random()*cols)][Math.floor(Math.random()*rows)]) filled++;
+                 }
+                 if(filled > 80) {
+                     setTimeout(init, 1000);
+                 }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', init);
+        
+        // Initial setup
+        init();
+        animate();
+
+    </script>
+</body>
+</html>

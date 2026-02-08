@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fluid Kinetic Typography</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0a0a;
+            font-family: 'Arial Black', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #444;
+            font-size: 12px;
+            pointer-events: none;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">Move cursor to distort</div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Helper canvas for text data
+        const textCanvas = document.createElement('canvas');
+        const textCtx = textCanvas.getContext('2d');
+
+        let width = 0;
+        let height = 0;
+        let mouse = { x: -1000, y: -1000, prevX: -1000, prevY: -1000, vX: 0, vY: 0 };
+        
+        // Configuration
+        const GRID_SPACING = 12; 
+        const MOUSE_RADIUS = 120;
+        const STIFFNESS = 0.12; 
+        const DAMPING = 0.90; 
+        const TEXT_STRING = "FLUID";
+        
+        let points = [];
+        let cols = 0;
+        let rows = 0;
+
+        class Point {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.originX = x;
+                this.originY = y;
+                this.vx = 0;
+                this.vy = 0;
+            }
+
+            update() {
+                // Hooke's Law (Spring physics)
+                const dx = this.originX - this.x;
+                const dy = this.originY - this.y;
+                
+                const forceX = dx * STIFFNESS;
+                const forceY = dy * STIFFNESS;
+
+                this.vx += forceX;
+                this.vy += forceY;
+
+                // Mouse Repulsion
+                const distDx = this.x - mouse.x;
+                const distDy = this.y - mouse.y;
+                const dist = Math.sqrt(distDx * distDx + distDy * distDy);
+
+                if (dist < MOUSE_RADIUS) {
+                    const angle = Math.atan2(distDy, distDx);
+                    const force = (MOUSE_RADIUS - dist) / MOUSE_RADIUS;
+                    const pushForce = force * 20; 
+
+                    this.vx += Math.cos(angle) * pushForce;
+                    this.vy += Math.sin(angle) * pushForce;
+                }
+
+                // Mouse Drag influence
+                if (dist < MOUSE_RADIUS * 0.5) {
+                    this.vx += mouse.vX * 0.15;
+                    this.vy += mouse.vY * 0.15;
+                }
+
+                this.vx *= DAMPING;
+                this.vy *= DAMPING;
+
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+
+            // Prevent 0 size errors
+            if (width === 0) width = 1;
+            if (height === 0) height = 1;
+
+            canvas.width = width;
+            canvas.height = height;
+            
+            textCanvas.width = width;
+            textCanvas.height = height;
+
+            cols = Math.ceil(width / GRID_SPACING) + 1;
+            rows = Math.ceil(height / GRID_SPACING) + 1;
+            
+            // Re-init points
+            points = [];
+            for (let i = 0; i < cols; i++) {
+                points[i] = [];
+                for (let j = 0; j < rows; j++) {
+                    points[i][j] = new Point(i * GRID_SPACING, j * GRID_SPACING);
+                }
+            }
+
+            drawTextToBuffer();
+        }
+
+        function drawTextToBuffer() {
+            if (width <= 0 || height <= 0) return;
+
+            textCtx.fillStyle = '#0a0a0a';
+            textCtx.fillRect(0, 0, width, height);
+            
+            textCtx.fillStyle = '#ffffff';
+            textCtx.textAlign = 'center';
+            textCtx.textBaseline = 'middle';
+            
+            const fontSize = Math.min(width, height) * 0.35;
+            textCtx.font = `900 ${fontSize}px "Arial Black", sans-serif`;
+            textCtx.fillText(TEXT_STRING, width / 2, height / 2);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Safety check
+            if (width <= 0 || height <= 0) return;
+
+            // Calculate mouse velocity
+            mouse.vX = mouse.x - mouse.prevX;
+            mouse.vY = mouse.y - mouse.prevY;
+            mouse.prevX = mouse.x;
+            mouse.prevY = mouse.y;
+
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, width, height);
+
+            // Get pixel data from the text buffer
+            // We wrap this in try-catch just in case, though the size checks should prevent it
+            let imgData;
+            try {
+                imgData = textCtx.getImageData(0, 0, width, height).data;
+            } catch (e) {
+                return; // Skip this frame if data isn't ready
+            }
+
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const p = points[i][j];
+                    p.update();
+
+                    const xInt = Math.floor(p.originX);
+                    const yInt = Math.floor(p.originY);
+                    
+                    // Boundary checks
+                    if (xInt >= 0 && xInt < width && yInt >= 0 && yInt < height) {
+                        const index = (yInt * width + xInt) * 4;
+                        const r = imgData[index]; // Red channel is enough for B&W text
+                        
+                        // If pixel is white (part of text)
+                        if (r > 100) {
+                            const speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+                            const radius = (GRID_SPACING * 0.55) + (speed * 0.4);
+                            
+                            // RGB Split / Chromatic Aberration based on velocity
+                            
+                            // Red
+                            ctx.fillStyle = `rgba(255, 50, 50, 0.8)`;
+                            ctx.beginPath();
+                            ctx.arc(p.x - p.vx*1.5, p.y - p.vy*1.5, radius, 0, Math.PI * 2);
+                            ctx.fill();
+
+                            // Cyan
+                            ctx.fillStyle = `rgba(0, 200, 255, 0.8)`;
+                            ctx.beginPath();
+                            ctx.arc(p.x + p.vx*1.5, p.y + p.vy*1.5, radius, 0, Math.PI * 2);
+                            ctx.fill();
+
+                            // White Core
+                            ctx.fillStyle = '#ffffff';
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+        }, { passive: true });
+
+        // Initial setup
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>

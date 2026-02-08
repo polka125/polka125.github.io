@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GiftGenie - The Art of Giving</title>
+    
+    <!-- Google Fonts: Plus Jakarta Sans fits the Corporate Memphis style perfectly -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        // Corporate Memphis Palette
+                        'memphis-bg': '#FFFBF5', // Creamy white
+                        'memphis-blue': '#3B82F6',
+                        'memphis-purple': '#8B5CF6',
+                        'memphis-pink': '#EC4899',
+                        'memphis-yellow': '#F59E0B',
+                        'memphis-dark': '#1E293B',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Smooth scrolling */
+        html { scroll-behavior: smooth; }
+        
+        /* Image fallback styling */
+        .img-placeholder {
+            background-color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            font-weight: bold;
+            border-radius: 1.5rem;
+        }
+    </style>
+</head>
+<body class="bg-memphis-bg text-memphis-dark font-sans antialiased">
+
+    <!-- Navigation -->
+    <nav class="w-full py-6 px-6 md:px-12 flex justify-between items-center max-w-7xl mx-auto">
+        <div class="text-2xl font-extrabold tracking-tight text-memphis-purple">
+            Gift<span class="text-memphis-pink">Genie</span>.
+        </div>
+        <a href="#contact" class="bg-memphis-dark text-white px-6 py-3 rounded-full font-bold hover:bg-memphis-blue transition-colors duration-300 shadow-lg transform hover:-translate-y-1">
+            Start Gifting
+        </a>
+    </nav>
+
+    <!-- Hero Section (The Promise) -->
+    <header class="max-w-7xl mx-auto px-6 md:px-12 py-12 md:py-24 flex flex-col-reverse md:flex-row items-center gap-12">
+        <div class="w-full md:w-1/2 space-y-6">
+            <div class="inline-block bg-memphis-yellow/20 text-memphis-yellow px-4 py-1 rounded-full text-sm font-bold uppercase tracking-wide">
+                Gift Giving Reimagined
+            </div>
+            <h1 class="text-5xl md:text-7xl font-extrabold leading-tight">
+                Make Every Gift <br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-memphis-purple to-memphis-pink">A Masterpiece.</span>
+            </h1>
+            <p class="text-lg text-gray-600 md:max-w-md">
+                We turn the stress of selection into the joy of connection. Expertly curated gifts, handled by creative professionals.
+            </p>
+            <div class="pt-4">
+                <a href="#contact" class="inline-block bg-memphis-purple text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-memphis-pink transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
+                    Find the Perfect Gift
+                </a>
+            </div>
+        </div>
+        <div class="w-full md:w-1/2">
+            <!-- Image: 05_The_Unboxing -->
+            <img src="./img/05_The_Unboxing.png" 
+                 alt="A happy person unboxing a glowing gift" 
+                 class="w-full h-auto rounded-3xl shadow-2xl transform rotate-2 hover:rotate-0 transition-transform duration-500"
+                 onerror="this.onerror=null; this.src='https://placehold.co/600x600/EC4899/white?text=05_The_Unboxing';">
+        </div>
+    </header>
+
+    <!-- Section 1: The Problem (The Panic) -->
+    <section class="bg-white py-20">
+        <div class="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center gap-16">
+            <div class="w-full md:w-1/2">
+                <!-- Image: 01_The_Gift_Panic -->
+                <img src="./img/01_The_Gift_Panic.png" 
+                     alt="Stressed person at desk with calendar" 
+                     class="w-full h-auto rounded-3xl shadow-lg"
+                     onerror="this.onerror=null; this.src='https://placehold.co/600x500/3B82F6/white?text=01_The_Gift_Panic';">
+            </div>
+            <div class="w-full md:w-1/2 space-y-6">
+                <h2 class="text-4xl font-bold leading-tight">
+                    The Calendar is <span class="text-memphis-blue">Unforgiving.</span>
+                </h2>
+                <p class="text-xl text-gray-600 leading-relaxed">
+                    We've all been there. The date is circled in red. The clock is ticking. You want to give something meaningful, but panic sets in. You have zero ideas and even less time.
+                </p>
+                <p class="text-xl text-gray-600 leading-relaxed">
+                    The result? Last-minute panic buying that feels impersonal.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: The Importance (The Connection) -->
+    <section class="bg-memphis-bg py-20">
+        <div class="max-w-7xl mx-auto px-6 md:px-12 flex flex-col-reverse md:flex-row items-center gap-16">
+            <div class="w-full md:w-1/2 space-y-6">
+                <h2 class="text-4xl font-bold leading-tight">
+                    It's About the <span class="text-memphis-pink">Bond</span>, Not the Box.
+                </h2>
+                <p class="text-xl text-gray-600 leading-relaxed">
+                    Gifts are the physical language of relationships. They bridge the gap between people. A thoughtful gift says "I know you" and "I appreciate you."
+                </p>
+                <p class="text-xl text-gray-600 leading-relaxed">
+                    Don't let a busy schedule sever that connection. We ensure the emotional bridge remains strong.
+                </p>
+            </div>
+            <div class="w-full md:w-1/2">
+                <!-- Image: 02_Emotional_Bridge -->
+                <img src="./img/02_Emotional_Bridge.png" 
+                     alt="Two people connecting over a gift" 
+                     class="w-full h-auto rounded-3xl shadow-lg"
+                     onerror="this.onerror=null; this.src='https://placehold.co/600x500/F59E0B/white?text=02_Emotional_Bridge';">
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 3: The Expertise (The Lab) -->
+    <section class="bg-memphis-purple text-white py-20">
+        <div class="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center gap-16">
+            <div class="w-full md:w-1/2">
+                <!-- Image: 03_The_Gift_Lab -->
+                <img src="./img/03_The_Gift_Lab.png" 
+                     alt="Creative team working in a lab" 
+                     class="w-full h-auto rounded-3xl shadow-2xl border-4 border-white/20"
+                     onerror="this.onerror=null; this.src='https://placehold.co/600x500/8B5CF6/white?text=03_The_Gift_Lab';">
+            </div>
+            <div class="w-full md:w-1/2 space-y-6">
+                <div class="inline-block bg-white/20 px-3 py-1 rounded-full text-sm font-bold">
+                    Meet the Experts
+                </div>
+                <h2 class="text-4xl font-bold leading-tight">
+                    We Are Gift <span class="text-memphis-yellow">Scientists.</span>
+                </h2>
+                <p class="text-xl text-purple-100 leading-relaxed">
+                    We aren't algorithms. We are a team of creative curators, artists, and researchers. We analyze the recipient's personality, interests, and your relationship to craft a tailored solution.
+                </p>
+                <ul class="space-y-4 mt-4">
+                    <li class="flex items-center gap-3">
+                        <svg class="w-6 h-6 text-memphis-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Personalized Research</span>
+                    </li>
+                    <li class="flex items-center gap-3">
+                        <svg class="w-6 h-6 text-memphis-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Artistic Presentation</span>
+                    </li>
+                    <li class="flex items-center gap-3">
+                        <svg class="w-6 h-6 text-memphis-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Quality Assurance</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: The Benefit (Time Saver) -->
+    <section class="bg-white py-20">
+        <div class="max-w-7xl mx-auto px-6 md:px-12 flex flex-col-reverse md:flex-row items-center gap-16">
+            <div class="w-full md:w-1/2 space-y-6">
+                <h2 class="text-4xl font-bold leading-tight">
+                    Reclaim Your <span class="text-memphis-blue">Time.</span>
+                </h2>
+                <p class="text-xl text-gray-600 leading-relaxed">
+                    While we handle the hunting, wrapping, and logistics, you get to focus on what you do best. Relax. We've got this.
+                </p>
+                <p class="text-xl text-gray-600 leading-relaxed">
+                    No more mall parking lots. No more endless scrolling. Just the credit for a perfect gift.
+                </p>
+            </div>
+            <div class="w-full md:w-1/2">
+                <!-- Image: 04_Reclaimed_Time -->
+                <img src="./img/04_Reclaimed_Time.png" 
+                     alt="Relaxed person while drone carries gift" 
+                     class="w-full h-auto rounded-3xl shadow-lg"
+                     onerror="this.onerror=null; this.src='https://placehold.co/600x500/3B82F6/white?text=04_Reclaimed_Time';">
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer / CTA -->
+    <footer id="contact" class="bg-memphis-dark text-white py-20">
+        <div class="max-w-4xl mx-auto px-6 text-center space-y-8">
+            <h2 class="text-4xl md:text-5xl font-bold">Ready to become a gifting legend?</h2>
+            <p class="text-xl text-gray-400">Tell us who the gift is for, and we'll start the engine.</p>
+            
+            <div class="bg-white/10 p-8 rounded-3xl mt-8 backdrop-blur-sm">
+                <form class="space-y-4 text-left">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Your Name</label>
+                            <input type="text" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/20 focus:border-memphis-pink focus:outline-none transition" placeholder="John Doe">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-2">Your Email</label>
+                            <input type="email" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/20 focus:border-memphis-pink focus:outline-none transition" placeholder="john@example.com">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-2">Who is the gift for?</label>
+                        <textarea class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/20 focus:border-memphis-pink focus:outline-none transition h-32" placeholder="My partner, my boss, my mom..."></textarea>
+                    </div>
+                    <button type="button" class="w-full bg-memphis-pink hover:bg-pink-600 text-white font-bold py-4 rounded-xl text-lg transition-all shadow-lg hover:shadow-pink-500/50">
+                        Start Request
+                    </button>
+                </form>
+            </div>
+            
+            <div class="pt-12 text-gray-500 text-sm">
+                &copy; 2024 GiftGenie Service. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

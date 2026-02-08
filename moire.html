@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moiré Pattern Cryptography</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #eee;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+            background: #000;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 14px;
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #fff;
+        }
+
+        p {
+            font-size: 11px;
+            margin: 0;
+            color: #aaa;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            z-index: 20;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <div class="loading" id="loading">Generating Cryptography...</div>
+        <!-- Layer 1: The Encoded Image -->
+        <canvas id="baseLayer"></canvas>
+        <!-- Layer 2: The Decoder Mask -->
+        <canvas id="maskLayer"></canvas>
+    </div>
+
+    <div class="ui-overlay">
+        <h1>Moiré Cryptography</h1>
+        <p>Move mouse to decrypt signal.</p>
+        <p>Interference Pattern: Concentric Sine</p>
+    </div>
+
+    <script>
+        const container = document.getElementById('canvas-container');
+        const baseCanvas = document.getElementById('baseLayer');
+        const maskCanvas = document.getElementById('maskLayer');
+        const baseCtx = baseCanvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base
+        const maskCtx = maskCanvas.getContext('2d');
+        const loading = document.getElementById('loading');
+
+        let width, height;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+
+        // Configuration
+        const config = {
+            lineSpacing: 6,      // Distance between rings
+            lineWidth: 3,        // Thickness of rings
+            distortion: 4,       // How much the hidden text shifts the lines
+            textScale: 0.15,     // Size of text relative to screen width
+            text: "SYSTEM",      // The hidden message
+            subText: "BREACH"    // Secondary hidden message
+        };
+
+        // Resize handler
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+
+            // Set actual canvas size
+            baseCanvas.width = width;
+            baseCanvas.height = height;
+            maskCanvas.width = width;
+            maskCanvas.height = height;
+
+            // Center mouse initially
+            mouseX = width / 2;
+            mouseY = height / 2;
+            targetX = width / 2;
+            targetY = height / 2;
+
+            // Regenerate patterns
+            generatePatterns();
+        }
+
+        // Helper to draw the concentric circle pattern
+        // ctx: Canvas Context
+        // isBase: Boolean (true if encoding the hidden image)
+        function drawPattern(ctx, isBase) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.fillStyle = '#fff';
+            
+            // We draw the pattern manually pixel-by-pixel or line-by-line?
+            // For performance with high frequency, we'll use Path2D and arc, 
+            // but to encode the image, we need to distort specific areas.
+            
+            // Optimization: Instead of pixel manipulation (too slow for high res),
+            // we will draw thousands of circles. For the "Base" layer, we will 
+            // check an off-screen canvas to see if a specific point is "inside" the text,
+            // and if so, offset the radius slightly.
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxRadius = Math.sqrt(width * width + height * height) / 1.8;
+
+            // Create offscreen canvas for text map if this is the base layer
+            let textData = null;
+            if (isBase) {
+                const textCanvas = document.createElement('canvas');
+                textCanvas.width = width;
+                textCanvas.height = height;
+                const tCtx = textCanvas.getContext('2d');
+                
+                tCtx.fillStyle = '#000';
+                tCtx.fillRect(0, 0, width, height);
+                tCtx.fillStyle = '#fff';
+                tCtx.textAlign = 'center';
+                tCtx.textBaseline = 'middle';
+                
+                // Draw Main Text
+                tCtx.font = `900 ${width * config.textScale}px Arial`;
+                tCtx.fillText(config.text, width / 2, height / 2 - (height * 0.05));
+                
+                // Draw Sub Text
+                tCtx.font = `900 ${width * (config.textScale * 0.4)}px Arial`;
+                tCtx.fillText(config.subText, width / 2, height / 2 + (height * 0.15));
+
+                // Get the pixel data to map the distortion
+                // Note: Getting full image data can be heavy, but we only do it once on resize
+                textData = tCtx.getImageData(0, 0, width, height).data;
+            }
+
+            ctx.beginPath();
+            
+            // Draw rings from center outwards
+            for (let r = 0; r < maxRadius; r += config.lineSpacing) {
+                
+                // If it's the mask, just draw a perfect circle
+                if (!isBase) {
+                    ctx.moveTo(centerX + r, centerY);
+                    ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+                } else {
+                    // If it's the base, we need to construct the circle segment by segment
+                    // to apply local distortion where the text is.
+                    // This is computationally heavier, so we step through angles.
+                    
+                    const circumference = 2 * Math.PI * r;
+                    const stepSize = Math.max(2, 1000 / (r + 1)); // Adaptive step size
+                    const stepAngle = (Math.PI * 2) / (circumference / stepSize);
+                    
+                    // We construct a polygon that looks like a circle
+                    for (let a = 0; a < Math.PI * 2; a += 0.02) { // Fixed step for simplicity/performance balance
+                        const cosA = Math.cos(a);
+                        const sinA = Math.sin(a);
+                        
+                        // Calculate nominal position
+                        let px = centerX + cosA * r;
+                        let py = centerY + sinA * r;
+                        
+                        // Check text map
+                        let distortion = 0;
+                        
+                        // Boundary check
+                        if (px >= 0 && px < width && py >= 0 && py < height) {
+                            const idx = (Math.floor(py) * width + Math.floor(px)) * 4;
+                            // If pixel is white (part of text)
+                            if (textData[idx] > 128) {
+                                distortion = config.distortion; 
+                            }
+                        }
+
+                        // Apply distortion to radius
+                        const distortedR = r + distortion;
+                        const dPx = centerX + cosA * distortedR;
+                        const dPy = centerY + sinA * distortedR;
+
+                        if (a === 0) ctx.moveTo(dPx, dPy);
+                        else ctx.lineTo(dPx, dPy);
+                    }
+                    ctx.closePath();
+                }
+            }
+            
+            ctx.lineWidth = config.lineWidth;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+        }
+
+        function generatePatterns() {
+            loading.style.opacity = 1;
+            
+            // Use setTimeout to allow UI to update before heavy calculation
+            setTimeout(() => {
+                // 1. Draw the Base Layer (Encoded)
+                drawPattern(baseCtx, true);
+
+                // 2. Draw the Mask Layer (Decoder)
+                // We clear it first
+                maskCtx.clearRect(0, 0, width, height);
+                drawPattern(maskCtx, false);
+
+                // Apply the "magic" blending mode to the mask canvas element via CSS
+                // or we can use composite operations if we were drawing on a single canvas.
+                // Here, using CSS mix-blend-mode on the canvas element is often smoother for the browser compositor.
+                maskCanvas.style.mixBlendMode = 'difference'; 
+                
+                loading.style.opacity = 0;
+            }, 50);
+        }
+
+        // Animation Loop for smooth parallax
+        function animate() {
+            // Smooth easing for mouse movement
+            mouseX += (targetX - mouseX) * 0.1;
+            mouseY += (targetY - mouseY) * 0.1;
+
+            // Calculate offset from center
+            const offsetX = (mouseX - width / 2);
+            const offsetY = (mouseY - height / 2);
+
+            // Apply transformation to the Mask Layer
+            // We translate the canvas element itself for best performance
+            // The magic happens because the Base layer is static, and the Mask layer
+            // (which is 'difference' blended) moves slightly.
+            
+            // We move the mask slightly against the mouse to create parallax
+            maskCanvas.style.transform = `translate(${offsetX * 0.1}px, ${offsetY * 0.1}px)`;
+            
+            // Optional: Slight rotation for more chaotic interference
+            // maskCanvas.style.transform += ` rotate(${offsetX * 0.005}deg)`;
+
+            requestAnimationFrame(animate);
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', resize);
+        
+        window.addEventListener('mousemove', (e) => {
+            targetX = e.clientX;
+            targetY = e.clientY;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            targetX = e.touches[0].clientX;
+            targetY = e.touches[0].clientY;
+        }, { passive: true });
+
+        // Initialize
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>

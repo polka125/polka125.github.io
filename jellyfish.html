@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bioluminescent Jellyfish</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020408; /* Deep sea black/blue */
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let jellies = [];
+
+        // Configuration
+        const JELLY_COUNT = 12;
+        const COLORS = [
+            { r: 0, g: 255, b: 200 }, // Cyan
+            { r: 200, g: 100, b: 255 }, // Purple
+            { r: 255, g: 50, b: 100 },  // Pink
+            { r: 50, g: 100, b: 255 }   // Blue
+        ];
+
+        // Resize handler to prevent IndexSizeError
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize(); // Call immediately
+
+        // Helper: Random range
+        const random = (min, max) => Math.random() * (max - min) + min;
+
+        class TentacleSegment {
+            constructor(x, y, length) {
+                this.x = x;
+                this.y = y;
+                this.length = length;
+                this.angle = 0;
+            }
+
+            follow(targetX, targetY) {
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                this.angle = Math.atan2(dy, dx);
+                
+                // Inverse kinematics logic: move to target, then back off by length
+                this.x = targetX - Math.cos(this.angle) * this.length;
+                this.y = targetY - Math.sin(this.angle) * this.length;
+            }
+        }
+
+        class Jellyfish {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                this.scale = random(0.4, 1.2);
+                this.x = random(0, width);
+                this.y = random(height + 100, height + 500); // Start below screen
+                this.speed = random(0.5, 1.5);
+                this.angle = -Math.PI / 2; // Facing up
+                this.angleVel = 0;
+                
+                // Movement noise offsets
+                this.xOff = random(0, 1000);
+                this.pulseOff = random(0, 100);
+                
+                const col = COLORS[Math.floor(random(0, COLORS.length))];
+                this.color = `rgba(${col.r}, ${col.g}, ${col.b}`;
+                
+                // Create tentacles
+                this.tentacles = [];
+                const tentacleCount = Math.floor(random(6, 10));
+                
+                for (let i = 0; i < tentacleCount; i++) {
+                    const segments = [];
+                    const numSegments = 15;
+                    const segLen = 5 * this.scale;
+                    let currX = this.x;
+                    let currY = this.y;
+                    
+                    for (let j = 0; j < numSegments; j++) {
+                        segments.push(new TentacleSegment(currX, currY + j * segLen, segLen));
+                    }
+                    this.tentacles.push({
+                        segments: segments,
+                        offsetX: (i - tentacleCount/2) * (6 * this.scale) // Spread them out under the head
+                    });
+                }
+            }
+
+            update(time) {
+                // Upward movement
+                this.y -= this.speed;
+                
+                // Horizontal drift (sine wave based on time + noise)
+                this.x += Math.sin(time * 0.001 + this.xOff) * 1.5;
+                
+                // Reset if goes off top
+                if (this.y < -300) {
+                    this.init();
+                    this.y = height + 200;
+                }
+
+                // Breathing/Pulsing effect
+                this.pulse = Math.sin(time * 0.005 + this.pulseOff);
+                this.headWidth = (40 + this.pulse * 5) * this.scale;
+                this.headHeight = (30 - this.pulse * 2) * this.scale;
+
+                // Update Tentacles
+                this.tentacles.forEach(tentacle => {
+                    // The base of the tentacle is attached to the bottom of the head
+                    // We rotate the attachment point based on the jellyfish's slight rotation
+                    let targetX = this.x + tentacle.offsetX + Math.sin(time * 0.002 + this.xOff) * 10;
+                    let targetY = this.y + this.headHeight * 0.5;
+
+                    // Update segments
+                    tentacle.segments[0].follow(targetX, targetY);
+                    for (let i = 1; i < tentacle.segments.length; i++) {
+                        tentacle.segments[i].follow(tentacle.segments[i-1].x, tentacle.segments[i-1].y);
+                    }
+                });
+            }
+
+            draw(ctx) {
+                ctx.save();
+                
+                // Glow effect
+                ctx.shadowBlur = 20 * this.scale;
+                ctx.shadowColor = this.color + ', 0.8)';
+                
+                // Draw Head (Bell)
+                ctx.fillStyle = this.color + ', 0.2)';
+                ctx.strokeStyle = this.color + ', 0.6)';
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                // Top curve of the bell
+                ctx.moveTo(this.x - this.headWidth, this.y);
+                ctx.bezierCurveTo(
+                    this.x - this.headWidth, this.y - this.headHeight * 1.5,
+                    this.x + this.headWidth, this.y - this.headHeight * 1.5,
+                    this.x + this.headWidth, this.y
+                );
+                
+                // Bottom rim (scalloped)
+                ctx.bezierCurveTo(
+                    this.x + this.headWidth, this.y + this.headHeight * 0.5,
+                    this.x - this.headWidth, this.y + this.headHeight * 0.5,
+                    this.x - this.headWidth, this.y
+                );
+                
+                ctx.fill();
+                ctx.stroke();
+
+                // Inner organs (brighter center)
+                ctx.beginPath();
+                ctx.fillStyle = this.color + ', 0.5)';
+                ctx.arc(this.x, this.y - this.headHeight * 0.2, this.headWidth * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw Tentacles
+                ctx.shadowBlur = 0; // Performance optimization
+                ctx.strokeStyle = this.color + ', 0.4)';
+                ctx.lineWidth = 1.5 * this.scale;
+
+                this.tentacles.forEach(tentacle => {
+                    ctx.beginPath();
+                    ctx.moveTo(tentacle.segments[0].x, tentacle.segments[0].y);
+                    
+                    // Draw smooth curve through segments
+                    for (let i = 1; i < tentacle.segments.length - 1; i++) {
+                        const xc = (tentacle.segments[i].x + tentacle.segments[i+1].x) / 2;
+                        const yc = (tentacle.segments[i].y + tentacle.segments[i+1].y) / 2;
+                        ctx.quadraticCurveTo(tentacle.segments[i].x, tentacle.segments[i].y, xc, yc);
+                    }
+                    // Connect last segment
+                    let last = tentacle.segments[tentacle.segments.length - 1];
+                    ctx.lineTo(last.x, last.y);
+                    
+                    ctx.stroke();
+                });
+
+                ctx.restore();
+            }
+        }
+
+        // Initialize Swarm
+        for (let i = 0; i < JELLY_COUNT; i++) {
+            jellies.push(new Jellyfish());
+            // Pre-scatter them vertically so they don't all start at the bottom
+            jellies[i].y = random(0, height + 200);
+        }
+
+        // Background Gradient
+        function drawBackground() {
+            // Create a deep sea gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#000000');
+            gradient.addColorStop(0.5, '#020b1a');
+            gradient.addColorStop(1, '#05162e');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // Add some "marine snow" (tiny distant specs)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+            for(let i=0; i<50; i++) {
+                const x = (Date.now() * 0.01 * (i % 5 + 1) + i * 100) % width;
+                const y = (Date.now() * 0.02 * (i % 3 + 1) + i * 137) % height;
+                ctx.fillRect(x, y, 2, 2);
+            }
+        }
+
+        function animate(time) {
+            // Clear
+            ctx.clearRect(0, 0, width, height);
+            
+            drawBackground();
+
+            // Use 'lighter' composite mode to make overlapping jellies glow brighter
+            ctx.globalCompositeOperation = 'screen';
+
+            jellies.forEach(jelly => {
+                jelly.update(time);
+                jelly.draw(ctx);
+            });
+
+            ctx.globalCompositeOperation = 'source-over';
+
+            requestAnimationFrame(animate);
+        }
+
+        animate(0);
+
+    </script>
+</body>
+</html>

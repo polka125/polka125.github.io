@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinetic Tape Loop</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #111;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let frame = 0;
+
+        // Configuration
+        const config = {
+            columns: 12, // Number of vertical strips
+            rows: 20,    // Number of symbols per strip
+            cellSize: 0, // Calculated dynamically
+            speed: 0.005 // Base animation speed
+        };
+
+        // State
+        let strips = [];
+        let colorPalettes = [
+            ['#FF3B30', '#FFFFFF', '#000000'], // Red/White/Black (Swiss Style)
+            ['#FFD700', '#1E90FF', '#222222'], // Blue/Gold/Dark
+            ['#00FF41', '#0D0208', '#008F11'], // Matrix-ish but blocky
+            ['#FF00FF', '#00FFFF', '#2D2D2D']  // CMYK vibe
+        ];
+        let currentPalette = colorPalettes[0];
+
+        // Resize handler
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            config.cellSize = width / config.columns;
+            initStrips();
+        }
+
+        // Custom Easing: Exponential In/Out (Snappy movement)
+        function easeInOutExpo(x) {
+            return x === 0 ? 0 : x === 1 ? 1 : x < 0.5 ? Math.pow(2, 20 * x - 10) / 2 : (2 - Math.pow(2, -20 * x + 10)) / 2;
+        }
+
+        // Step function for discrete movement
+        function step(t) {
+            // Creates a "hold" effect. It moves, then waits.
+            const period = 200; // Frames per cycle
+            const pause = 0.4; // Percentage of time spent paused
+            
+            let localT = (t % period) / period;
+            
+            if (localT < pause) {
+                return Math.floor(t / period); // Hold
+            } else {
+                // Move
+                const moveT = (localT - pause) / (1 - pause);
+                return Math.floor(t / period) + easeInOutExpo(moveT);
+            }
+        }
+
+        class Strip {
+            constructor(xIndex) {
+                this.xIndex = xIndex;
+                this.offset = Math.random() * 1000; // Random starting offset
+                this.speedMod = 0.5 + Math.random() * 1.5; // Random speed multiplier
+                this.direction = Math.random() > 0.5 ? 1 : -1;
+                this.symbols = [];
+                this.generateSymbols();
+            }
+
+            generateSymbols() {
+                // Pre-generate a long tape of symbols
+                for (let i = 0; i < config.rows * 3; i++) {
+                    this.symbols.push({
+                        type: Math.floor(Math.random() * 5),
+                        fill: Math.random() > 0.5,
+                        colorIndex: Math.floor(Math.random() * 3)
+                    });
+                }
+            }
+
+            draw(t) {
+                const x = this.xIndex * config.cellSize;
+                const totalHeight = config.rows * config.cellSize;
+                
+                // Calculate vertical shift based on time and custom stepping
+                // We add xIndex to t to desynchronize columns slightly
+                const movement = step(t * this.speedMod + this.xIndex * 20) * this.direction;
+                
+                // Smooth continuous scrolling for background effect
+                const smoothY = movement * config.cellSize;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(x, 0, config.cellSize, height);
+                ctx.clip(); // Clip drawing to this column only
+
+                // Draw the symbols
+                for (let i = 0; i < this.symbols.length; i++) {
+                    const symbol = this.symbols[i];
+                    
+                    // Calculate Y position. Modulo allows wrapping (infinite tape illusion)
+                    let y = (i * config.cellSize) + smoothY;
+                    
+                    // Wrap logic
+                    const tapeLength = this.symbols.length * config.cellSize;
+                    y = y % tapeLength;
+                    if (y < -config.cellSize) y += tapeLength;
+                    if (y > height) y -= tapeLength;
+
+                    // Only draw if visible
+                    if (y > -config.cellSize && y < height) {
+                        this.drawSymbol(x, y, config.cellSize, symbol);
+                    }
+                }
+                ctx.restore();
+                
+                // Draw column divider
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            drawSymbol(x, y, size, symbol) {
+                const padding = size * 0.1;
+                const innerSize = size - (padding * 2);
+                const cx = x + size / 2;
+                const cy = y + size / 2;
+
+                ctx.fillStyle = currentPalette[symbol.colorIndex];
+                ctx.strokeStyle = currentPalette[symbol.colorIndex];
+                ctx.lineWidth = size * 0.05;
+
+                // Background for the cell (sometimes)
+                if (symbol.fill) {
+                    ctx.fillStyle = currentPalette[0]; // Base color
+                    ctx.fillRect(x, y, size, size);
+                    ctx.fillStyle = currentPalette[1]; // Contrast color
+                    ctx.strokeStyle = currentPalette[1];
+                } else {
+                    ctx.fillStyle = currentPalette[2]; // Dark color
+                    ctx.fillRect(x, y, size, size);
+                    ctx.fillStyle = currentPalette[0]; // Highlight
+                    ctx.strokeStyle = currentPalette[0];
+                }
+
+                switch (symbol.type) {
+                    case 0: // Circle
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, innerSize / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                    case 1: // Cross
+                        ctx.beginPath();
+                        ctx.moveTo(x + padding, y + padding);
+                        ctx.lineTo(x + size - padding, y + size - padding);
+                        ctx.moveTo(x + size - padding, y + padding);
+                        ctx.lineTo(x + padding, y + size - padding);
+                        ctx.stroke();
+                        break;
+                    case 2: // Triangle
+                        ctx.beginPath();
+                        ctx.moveTo(cx, y + padding);
+                        ctx.lineTo(x + size - padding, y + size - padding);
+                        ctx.lineTo(x + padding, y + size - padding);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 3: // Grid of dots
+                        const dotSize = innerSize / 6;
+                        for(let dx=0; dx<3; dx++) {
+                            for(let dy=0; dy<3; dy++) {
+                                ctx.beginPath();
+                                ctx.arc(
+                                    x + padding + (dx * innerSize/2), 
+                                    y + padding + (dy * innerSize/2), 
+                                    dotSize, 0, Math.PI*2
+                                );
+                                ctx.fill();
+                            }
+                        }
+                        break;
+                    case 4: // Diagonal Lines
+                        ctx.beginPath();
+                        for(let k=0; k<=4; k++) {
+                            let offset = (k/4) * innerSize;
+                            ctx.moveTo(x + padding, y + padding + offset);
+                            ctx.lineTo(x + padding + offset, y + padding);
+                        }
+                        ctx.stroke();
+                        break;
+                }
+            }
+        }
+
+        function initStrips() {
+            strips = [];
+            for (let i = 0; i < config.columns; i++) {
+                strips.push(new Strip(i));
+            }
+        }
+
+        function animate() {
+            // Clear screen
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, width, height);
+
+            // Change palette occasionally
+            if (frame % 1000 === 0) {
+                const pIndex = (frame / 1000) % colorPalettes.length;
+                currentPalette = colorPalettes[pIndex];
+            }
+
+            // Draw strips
+            strips.forEach(strip => strip.draw(frame));
+
+            frame++;
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        window.addEventListener('resize', resize);
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voronoi Diagram</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #111;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+            user-select: none;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: #4ade80;
+        }
+        p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        .key {
+            color: #fff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- <div id="ui">
+        <h1>Dual to Delaunay (Voronoi)</h1>
+        <p>Fixed for WebGL 1.0 Compatibility</p>
+        <p><span class="key">Drag</span> to move vertices.</p>
+        <p><span class="key">Double Click</span> to add/remove vertices.</p>
+        <p id="stats">Vertices: 10</p>
+    </div> -->
+
+    <canvas id="glCanvas"></canvas>
+
+    <!-- VERTEX SHADER -->
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() {
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    </script>
+
+    <!-- FRAGMENT SHADER -->
+    <script id="fs" type="x-shader/x-fragment">
+        precision highp float;
+
+        uniform vec2 u_resolution;
+        uniform vec2 u_points[50]; 
+        uniform vec3 u_colors[50];
+        uniform int u_count;
+
+        void main() {
+            vec2 st = gl_FragCoord.xy / u_resolution;
+            
+            // Aspect ratio correction for distance calculation
+            float aspect = u_resolution.x / u_resolution.y;
+            vec2 aspectSt = vec2(st.x * aspect, st.y);
+
+            float minDist = 100.0;
+            
+            // We must initialize these to avoid uninitialized variable warnings
+            vec3 finalColor = vec3(0.0);
+            vec2 closestPointRaw = vec2(0.0);
+
+            // Loop through all points
+            for (int i = 0; i < 50; i++) {
+                // We cannot use a non-constant expression in the loop condition in some strict versions,
+                // so we loop 50 times and break manually.
+                if (i >= u_count) break;
+                
+                vec2 point = u_points[i];
+                vec2 aspectPoint = vec2(point.x * aspect, point.y);
+                
+                float dist = distance(aspectSt, aspectPoint);
+                
+                if (dist < minDist) {
+                    minDist = dist;
+                    finalColor = u_colors[i];
+                    closestPointRaw = point;
+                }
+            }
+
+            // Apply vignette based on distance
+            vec3 color = mix(finalColor, finalColor * 0.6, minDist * 3.0);
+
+            // Draw the vertex dot
+            // Calculate distance in raw screen space (normalized but aspect corrected)
+            vec2 aspectClosest = vec2(closestPointRaw.x * aspect, closestPointRaw.y);
+            float distToCenter = distance(aspectSt, aspectClosest);
+
+            if (distToCenter < 0.015) {
+                color = vec3(1.0); // White dot center
+            } else if (distToCenter < 0.02) {
+                color = vec3(0.0); // Black dot outline
+            }
+
+            gl_FragColor = vec4(color, 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glCanvas');
+        const gl = canvas.getContext('webgl');
+        const stats = document.getElementById('stats');
+
+        if (!gl) {
+            alert('WebGL not supported');
+            throw new Error("WebGL not supported");
+        }
+
+        // --- Shader Compilation Helpers ---
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error("Shader compile error:", gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        function createProgram(gl, vsSource, fsSource) {
+            const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            
+            if (!vs || !fs) return null;
+
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Program link error:", gl.getProgramInfoLog(program));
+                return null;
+            }
+            return program;
+        }
+
+        const vsSource = document.getElementById('vs').text;
+        const fsSource = document.getElementById('fs').text;
+        const program = createProgram(gl, vsSource, fsSource);
+
+        if (!program) {
+            alert("Shader failed to compile. Check console for details.");
+            throw new Error("Shader compilation failed");
+        }
+
+        // --- State Management ---
+        const MAX_POINTS = 50;
+        let points = [];
+        let colors = [];
+        
+        function initPoints(count) {
+            points = [];
+            colors = [];
+            for (let i = 0; i < count; i++) {
+                points.push({ x: Math.random(), y: Math.random() });
+                colors.push([
+                    0.2 + Math.random() * 0.6,
+                    0.2 + Math.random() * 0.6,
+                    0.2 + Math.random() * 0.6
+                ]);
+            }
+            updateStats();
+        }
+        
+        initPoints(10);
+
+        // --- Buffers ---
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+            -1,  1,
+             1, -1,
+             1,  1,
+        ]), gl.STATIC_DRAW);
+
+        // --- Uniform Locations ---
+        const uResolution = gl.getUniformLocation(program, 'u_resolution');
+        const uPoints = gl.getUniformLocation(program, 'u_points');
+        const uColors = gl.getUniformLocation(program, 'u_colors');
+        const uCount = gl.getUniformLocation(program, 'u_count');
+        const aPosition = gl.getAttribLocation(program, 'position');
+
+        // --- Interaction ---
+        let draggingPointIndex = -1;
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX - rect.left) / canvas.width,
+                y: 1.0 - (e.clientY - rect.top) / canvas.height
+            };
+        }
+
+        function getDistance(p1, p2) {
+            const aspect = canvas.width / canvas.height;
+            const dx = (p1.x - p2.x) * aspect;
+            const dy = p1.y - p2.y;
+            return Math.sqrt(dx*dx + dy*dy);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const mouse = getMousePos(e);
+            let minDist = 0.05;
+            draggingPointIndex = -1;
+
+            points.forEach((p, i) => {
+                const d = getDistance(mouse, p);
+                if (d < minDist) {
+                    minDist = d;
+                    draggingPointIndex = i;
+                }
+            });
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingPointIndex !== -1) {
+                const mouse = getMousePos(e);
+                points[draggingPointIndex].x = mouse.x;
+                points[draggingPointIndex].y = mouse.y;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingPointIndex = -1;
+        });
+
+        canvas.addEventListener('dblclick', (e) => {
+            const mouse = getMousePos(e);
+            let minDist = 0.05;
+            let clickedIndex = -1;
+
+            points.forEach((p, i) => {
+                const d = getDistance(mouse, p);
+                if (d < minDist) {
+                    minDist = d;
+                    clickedIndex = i;
+                }
+            });
+
+            if (clickedIndex !== -1) {
+                if (points.length > 2) {
+                    points.splice(clickedIndex, 1);
+                    colors.splice(clickedIndex, 1);
+                }
+            } else {
+                if (points.length < MAX_POINTS) {
+                    points.push({ x: mouse.x, y: mouse.y });
+                    colors.push([
+                        0.2 + Math.random() * 0.6,
+                        0.2 + Math.random() * 0.6,
+                        0.2 + Math.random() * 0.6
+                    ]);
+                }
+            }
+            updateStats();
+        });
+
+        function updateStats() {
+            stats.innerText = `Vertices: ${points.length} / ${MAX_POINTS}`;
+        }
+
+        // --- Render Loop ---
+        function render() {
+            if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+
+            gl.useProgram(program);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(aPosition);
+            gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+
+            gl.uniform2f(uResolution, canvas.width, canvas.height);
+            gl.uniform1i(uCount, points.length);
+
+            const flatPoints = [];
+            const flatColors = [];
+            
+            for (let i = 0; i < MAX_POINTS; i++) {
+                if (i < points.length) {
+                    flatPoints.push(points[i].x, points[i].y);
+                    flatColors.push(colors[i][0], colors[i][1], colors[i][2]);
+                } else {
+                    flatPoints.push(0, 0);
+                    flatColors.push(0, 0, 0);
+                }
+            }
+
+            gl.uniform2fv(uPoints, new Float32Array(flatPoints));
+            gl.uniform3fv(uColors, new Float32Array(flatColors));
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>
