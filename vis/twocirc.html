@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fourier Transform of Intersecting Circles</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f6f8;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-width: 900px;
+            width: 100%;
+        }
+        h1, h2, h3 {
+            text-align: center;
+            margin-top: 0;
+        }
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        canvas {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+        }
+        #spatialCanvas {
+            cursor: grab;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+        }
+        #spatialCanvas:active {
+            cursor: grabbing;
+        }
+        .controls {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        input[type=range] {
+            width: 300px;
+        }
+        .product-field {
+            font-size: 1.25rem;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        .product-field.intersect {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 2px solid #4ade80;
+        }
+        .product-field.no-intersect {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 2px solid #f87171;
+        }
+        .fourier-section {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .fourier-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .fourier-box p {
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .legend {
+            font-size: 0.85rem;
+            color: #64748b;
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Spatial Domain: [-10, 10] × [-10, 10]</h1>
+    <p style="text-align: center; color: #64748b; margin-bottom: 20px;">Drag the dashed circles. They will highlight when intersecting.</p>
+    
+    <div class="canvas-wrapper">
+        <canvas id="spatialCanvas" width="500" height="500"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="slider-container">
+            <label for="kSlider"><strong>Fourier Terms (k):</strong> <span id="kValue">15</span></label>
+            <input type="range" id="kSlider" min="1" max="30" value="15">
+        </div>
+        
+        <div>
+            <div id="productDisplay" class="product-field no-intersect">
+                Inner Product ⟨f̂₁, f̂₂⟩: 0.000
+            </div>
+            <p style="font-size: 0.9rem; color: #64748b; margin-top: 8px;">
+                (Threshold for intersection: > 0.05)
+            </p>
+        </div>
+    </div>
+
+    <h2>Frequency Domain (Fourier Coefficients)</h2>
+    <div class="fourier-section">
+        <div class="fourier-box">
+            <p>Circle 1: f̂₁</p>
+            <canvas id="fourierCanvas1" width="300" height="300"></canvas>
+        </div>
+        <div class="fourier-box">
+            <p>Circle 2: f̂₂</p>
+            <canvas id="fourierCanvas2" width="300" height="300"></canvas>
+        </div>
+    </div>
+    <p class="legend">Color Hue = Phase | Brightness = Magnitude</p>
+</div>
+
+<script>
+    // --- Math & Constants ---
+    const L = 10; // Domain is [-10, 10]
+    const R = 1;  // Circle radius
+    const K_MAX = 30; // Max Fourier terms
+    
+    // State
+    let c1 = { x: -3, y: 0 };
+    let c2 = { x: 3, y: 0 };
+    let K = 15;
+    let dragging = 0; // 0: none, 1: c1, 2: c2
+
+    // Precompute Fourier magnitudes |C_{m,n}|
+    // C_{m,n} is the Fourier coefficient of a circle at the origin.
+    // By shift theorem, moving the circle only changes the phase, not the magnitude.
+    const C_cache = [];
+
+    // Numerical approximation of Bessel function of first kind, order 1: J1(x)
+    // Using integral representation: J1(x) = (1/pi) * int_0^pi cos(theta - x*sin(theta)) d_theta
+    function j1(x) {
+        if (x === 0) return 0;
+        let sum = 0;
+        const N = 50;
+        for (let i = 0; i < N; i++) {
+            let theta = (i + 0.5) * Math.PI / N;
+            sum += Math.cos(theta - x * Math.sin(theta));
+        }
+        return sum / N;
+    }
+
+    function computeBaseCoefficient(m, n) {
+        if (m === 0 && n === 0) {
+            // Area of circle / Area of domain
+            return (Math.PI * R * R) / (4 * L * L);
+        }
+        let kx = (Math.PI * m) / L;
+        let ky = (Math.PI * n) / L;
+        let k = Math.sqrt(kx * kx + ky * ky);
+        
+        // 2D Fourier transform of a disk gives Bessel function J1
+        let j1_val = j1(k * R);
+        return ((2 * Math.PI * R * R) / (4 * L * L)) * (j1_val / (k * R));
+    }
+
+    // Initialize cache
+    for (let m = -K_MAX; m <= K_MAX; m++) {
+        C_cache[m] = [];
+        for (let n = -K_MAX; n <= K_MAX; n++) {
+            C_cache[m][n] = computeBaseCoefficient(m, n);
+        }
+    }
+
+    // --- Canvas Setup ---
+    const spatialCanvas = document.getElementById('spatialCanvas');
+    const ctxSpatial = spatialCanvas.getContext('2d');
+    
+    const fourierCanvas1 = document.getElementById('fourierCanvas1');
+    const ctxF1 = fourierCanvas1.getContext('2d');
+    
+    const fourierCanvas2 = document.getElementById('fourierCanvas2');
+    const ctxF2 = fourierCanvas2.getContext('2d');
+
+    const productDisplay = document.getElementById('productDisplay');
+    const kSlider = document.getElementById('kSlider');
+    const kValue = document.getElementById('kValue');
+
+    // Coordinate transformations
+    function toScreen(x, y) {
+        return {
+            sx: (x + L) * (spatialCanvas.width / (2 * L)),
+            sy: (L - y) * (spatialCanvas.height / (2 * L))
+        };
+    }
+
+    function toMath(sx, sy) {
+        return {
+            x: sx / (spatialCanvas.width / (2 * L)) - L,
+            y: L - sy / (spatialCanvas.height / (2 * L))
+        };
+    }
+
+    // --- Drawing Functions ---
+    function drawSpatial(isIntersecting) {
+        ctxSpatial.clearRect(0, 0, spatialCanvas.width, spatialCanvas.height);
+
+        // Draw grid and axes
+        ctxSpatial.strokeStyle = '#e2e8f0';
+        ctxSpatial.lineWidth = 1;
+        for (let i = -10; i <= 10; i += 2) {
+            let p1 = toScreen(i, -10), p2 = toScreen(i, 10);
+            ctxSpatial.beginPath(); ctxSpatial.moveTo(p1.sx, p1.sy); ctxSpatial.lineTo(p2.sx, p2.sy); ctxSpatial.stroke();
+            p1 = toScreen(-10, i); p2 = toScreen(10, i);
+            ctxSpatial.beginPath(); ctxSpatial.moveTo(p1.sx, p1.sy); ctxSpatial.lineTo(p2.sx, p2.sy); ctxSpatial.stroke();
+        }
+        
+        ctxSpatial.strokeStyle = '#94a3b8';
+        let origin = toScreen(0, 0);
+        ctxSpatial.beginPath(); ctxSpatial.moveTo(origin.sx, 0); ctxSpatial.lineTo(origin.sx, spatialCanvas.height); ctxSpatial.stroke();
+        ctxSpatial.beginPath(); ctxSpatial.moveTo(0, origin.sy); ctxSpatial.lineTo(spatialCanvas.width, origin.sy); ctxSpatial.stroke();
+
+        // Draw circles
+        const rScreen = R * (spatialCanvas.width / (2 * L));
+        
+        function drawCircle(c, color) {
+            let pos = toScreen(c.x, c.y);
+            ctxSpatial.beginPath();
+            ctxSpatial.arc(pos.sx, pos.sy, rScreen, 0, 2 * Math.PI);
+            ctxSpatial.strokeStyle = color;
+            ctxSpatial.lineWidth = 2;
+            ctxSpatial.setLineDash([6, 6]);
+            ctxSpatial.stroke();
+            ctxSpatial.setLineDash([]);
+            
+            if (isIntersecting) {
+                ctxSpatial.fillStyle = 'rgba(239, 68, 68, 0.2)'; // Red hint on intersection
+                ctxSpatial.fill();
+            } else {
+                ctxSpatial.fillStyle = 'rgba(59, 130, 246, 0.1)'; // Default blue tint
+                ctxSpatial.fill();
+            }
+
+            // Center dot
+            ctxSpatial.beginPath();
+            ctxSpatial.arc(pos.sx, pos.sy, 3, 0, 2 * Math.PI);
+            ctxSpatial.fillStyle = color;
+            ctxSpatial.fill();
+        }
+
+        drawCircle(c1, '#2563eb');
+        drawCircle(c2, '#ea580c');
+    }
+
+    function drawFourier() {
+        ctxF1.clearRect(0, 0, fourierCanvas1.width, fourierCanvas1.height);
+        ctxF2.clearRect(0, 0, fourierCanvas2.width, fourierCanvas2.height);
+
+        let innerProduct = 0;
+        const cellSize = fourierCanvas1.width / (2 * K + 1);
+        const maxMag = C_cache[0][0]; // DC component is the largest
+
+        for (let m = -K; m <= K; m++) {
+            for (let n = -K; n <= K; n++) {
+                let C = C_cache[m][n];
+                let kx = (Math.PI * m) / L;
+                let ky = (Math.PI * n) / L;
+                
+                // Calculate phase for each circle
+                let phase1 = - (kx * c1.x + ky * c1.y);
+                let phase2 = - (kx * c2.x + ky * c2.y);
+                
+                // Handle negative C values by shifting phase by PI
+                let mag = Math.abs(C);
+                if (C < 0) {
+                    phase1 += Math.PI;
+                    phase2 += Math.PI;
+                }
+
+                // Inner product term: C_{m,n}^{(1)} * conj(C_{m,n}^{(2)})
+                // Since C is real, this simplifies to C^2 * cos(phase_diff)
+                let phaseDiff = kx * (c1.x - c2.x) + ky * (c1.y - c2.y);
+                innerProduct += C * C * Math.cos(phaseDiff);
+
+                // Draw cells
+                let px = (m + K) * cellSize;
+                let py = (K - n) * cellSize; // Invert Y so positive frequencies are up
+
+                // Map to color (Hue = phase, Lightness = magnitude)
+                let l = Math.pow(mag / maxMag, 0.5) * 50; // Non-linear scale for visibility
+                
+                let h1 = ((phase1 * 180 / Math.PI) % 360 + 360) % 360;
+                ctxF1.fillStyle = `hsl(${h1}, 100%, ${l}%)`;
+                ctxF1.fillRect(px, py, cellSize + 0.5, cellSize + 0.5); // +0.5 prevents grid gaps
+
+                let h2 = ((phase2 * 180 / Math.PI) % 360 + 360) % 360;
+                ctxF2.fillStyle = `hsl(${h2}, 100%, ${l}%)`;
+                ctxF2.fillRect(px, py, cellSize + 0.5, cellSize + 0.5);
+            }
+        }
+
+        // Parseval's theorem: Inner product of Fourier series * Area of domain ≈ Area of intersection
+        let estimatedArea = innerProduct * (4 * L * L);
+        
+        // True geometric intersection check for spatial hint
+        let dist = Math.sqrt((c1.x - c2.x)**2 + (c1.y - c2.y)**2);
+        let isIntersecting = dist < 2 * R;
+
+        drawSpatial(isIntersecting);
+
+        // Update UI
+        productDisplay.textContent = `Inner Product ⟨f̂₁, f̂₂⟩: ${estimatedArea.toFixed(3)}`;
+        if (estimatedArea > 0.05) {
+            productDisplay.className = 'product-field intersect';
+        } else {
+            productDisplay.className = 'product-field no-intersect';
+        }
+    }
+
+    // --- Event Listeners ---
+    kSlider.addEventListener('input', (e) => {
+        K = parseInt(e.target.value);
+        kValue.textContent = K;
+        drawFourier();
+    });
+
+    function getMousePos(canvas, evt) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: evt.clientX - rect.left,
+            y: evt.clientY - rect.top
+        };
+    }
+
+    spatialCanvas.addEventListener('mousedown', (e) => {
+        const pos = getMousePos(spatialCanvas, e);
+        const mathPos = toMath(pos.x, pos.y);
+        
+        let d1 = Math.sqrt((mathPos.x - c1.x)**2 + (mathPos.y - c1.y)**2);
+        let d2 = Math.sqrt((mathPos.x - c2.x)**2 + (mathPos.y - c2.y)**2);
+
+        if (d1 < R) dragging = 1;
+        else if (d2 < R) dragging = 2;
+    });
+
+    spatialCanvas.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        
+        const pos = getMousePos(spatialCanvas, e);
+        let mathPos = toMath(pos.x, pos.y);
+        
+        // Clamp to domain
+        mathPos.x = Math.max(-L + R, Math.min(L - R, mathPos.x));
+        mathPos.y = Math.max(-L + R, Math.min(L - R, mathPos.y));
+
+        if (dragging === 1) {
+            c1.x = mathPos.x;
+            c1.y = mathPos.y;
+        } else if (dragging === 2) {
+            c2.x = mathPos.x;
+            c2.y = mathPos.y;
+        }
+        
+        drawFourier(); // Recompute and redraw everything
+    });
+
+    window.addEventListener('mouseup', () => {
+        dragging = 0;
+    });
+
+    // Initial draw
+    drawFourier();
+
+</script>
+</body>
+</html>

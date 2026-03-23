@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fourier Transform Intersection Matrix</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f6f8;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-width: 1200px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-top: 0;
+        }
+        .layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            width: 100%;
+        }
+        .canvas-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            cursor: grab;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .controls {
+            background: #f8fafc;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            margin: 20px 0;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        input[type=range] {
+            width: 200px;
+        }
+        .matrix-section {
+            overflow-x: auto;
+        }
+        table {
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        th, td {
+            border: 1px solid #cbd5e1;
+            width: 45px;
+            height: 45px;
+            padding: 2px;
+        }
+        th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+        .th-blue { color: #2563eb; }
+        .th-red { color: #dc2626; }
+        .cell-value {
+            font-size: 0.75rem;
+            color: #334155;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Spatial Domain & Fourier Intersection Matrix</h1>
+    <p style="color: #64748b; margin-bottom: 20px; text-align: center;">
+        Drag the numbered circles. The matrix shows the inner product ⟨f̂_blue, f̂_red⟩ of their linearized Fourier vectors.
+    </p>
+
+    <div class="controls">
+        <div class="slider-container">
+            <label for="kSlider"><strong>Fourier Terms (k):</strong> <span id="kValue">10</span></label>
+            <input type="range" id="kSlider" min="1" max="20" value="10">
+        </div>
+        <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">
+            Higher k increases accuracy but requires larger vectors.
+        </p>
+    </div>
+    
+    <div class="layout">
+        <div class="canvas-section">
+            <h2>Spatial Domain [-10, 10]²</h2>
+            <canvas id="spatialCanvas" width="500" height="500"></canvas>
+        </div>
+
+        <div class="matrix-section">
+            <h2>Inner Product Matrix</h2>
+            <table id="matrixTable">
+                <!-- Generated via JS -->
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Math & Constants ---
+    const L = 10;
+    const R = 1;
+    const K_MAX = 20;
+    const NUM_CIRCLES = 10;
+    
+    let K = 10;
+    let draggingCircle = null;
+
+    // Arrays to hold circle objects {x, y, id, type}
+    const blueCircles = [];
+    const redCircles = [];
+
+    // Initialize random positions
+    for (let i = 0; i < NUM_CIRCLES; i++) {
+        blueCircles.push({
+            id: i,
+            type: 'blue',
+            x: (Math.random() - 0.5) * 16,
+            y: (Math.random() - 0.5) * 16
+        });
+        redCircles.push({
+            id: i,
+            type: 'red',
+            x: (Math.random() - 0.5) * 16,
+            y: (Math.random() - 0.5) * 16
+        });
+    }
+
+    const allCircles = [...blueCircles, ...redCircles];
+
+    // Precompute Fourier base magnitudes C_{m,n}
+    const C_cache = [];
+
+    function j1(x) {
+        if (x === 0) return 0;
+        let sum = 0;
+        const N = 50;
+        for (let i = 0; i < N; i++) {
+            let theta = (i + 0.5) * Math.PI / N;
+            sum += Math.cos(theta - x * Math.sin(theta));
+        }
+        return sum / N;
+    }
+
+    function computeBaseCoefficient(m, n) {
+        if (m === 0 && n === 0) return (Math.PI * R * R) / (4 * L * L);
+        let kx = (Math.PI * m) / L;
+        let ky = (Math.PI * n) / L;
+        let k = Math.sqrt(kx * kx + ky * ky);
+        return ((2 * Math.PI * R * R) / (4 * L * L)) * (j1(k * R) / (k * R));
+    }
+
+    for (let m = -K_MAX; m <= K_MAX; m++) {
+        C_cache[m] = [];
+        for (let n = -K_MAX; n <= K_MAX; n++) {
+            C_cache[m][n] = computeBaseCoefficient(m, n);
+        }
+    }
+
+    // --- Vectorization ---
+    // Produces a linearized vector [Re0, Im0, Re1, Im1, ...] for the given circle and K
+    function getFourierVector(circle, k_val) {
+        const vec = new Float64Array((2 * k_val + 1) * (2 * k_val + 1) * 2);
+        let idx = 0;
+        for (let m = -k_val; m <= k_val; m++) {
+            for (let n = -k_val; n <= k_val; n++) {
+                let C = C_cache[m][n];
+                let kx = (Math.PI * m) / L;
+                let ky = (Math.PI * n) / L;
+                let phase = -(kx * circle.x + ky * circle.y);
+                
+                vec[idx++] = C * Math.cos(phase); // Real part
+                vec[idx++] = C * Math.sin(phase); // Imaginary part
+            }
+        }
+        return vec;
+    }
+
+    function dotProduct(vec1, vec2) {
+        let sum = 0;
+        for (let i = 0; i < vec1.length; i++) {
+            sum += vec1[i] * vec2[i];
+        }
+        return sum;
+    }
+
+    // --- Canvas Setup ---
+    const canvas = document.getElementById('spatialCanvas');
+    const ctx = canvas.getContext('2d');
+    const matrixTable = document.getElementById('matrixTable');
+    const kSlider = document.getElementById('kSlider');
+    const kValue = document.getElementById('kValue');
+
+    function toScreen(x, y) {
+        return {
+            sx: (x + L) * (canvas.width / (2 * L)),
+            sy: (L - y) * (canvas.height / (2 * L))
+        };
+    }
+
+    function toMath(sx, sy) {
+        return {
+            x: sx / (canvas.width / (2 * L)) - L,
+            y: L - sy / (canvas.height / (2 * L))
+        };
+    }
+
+    function buildTableStructure() {
+        matrixTable.innerHTML = '';
+        
+        // Header row
+        let tr = document.createElement('tr');
+        let th = document.createElement('th');
+        th.textContent = 'B \\ R';
+        tr.appendChild(th);
+        for (let j = 0; j < NUM_CIRCLES; j++) {
+            let thRed = document.createElement('th');
+            thRed.textContent = `R${j}`;
+            thRed.className = 'th-red';
+            tr.appendChild(thRed);
+        }
+        matrixTable.appendChild(tr);
+
+        // Data rows
+        for (let i = 0; i < NUM_CIRCLES; i++) {
+            let row = document.createElement('tr');
+            let thBlue = document.createElement('th');
+            thBlue.textContent = `B${i}`;
+            thBlue.className = 'th-blue';
+            row.appendChild(thBlue);
+            
+            for (let j = 0; j < NUM_CIRCLES; j++) {
+                let td = document.createElement('td');
+                td.id = `cell-${i}-${j}`;
+                row.appendChild(td);
+            }
+            matrixTable.appendChild(row);
+        }
+    }
+
+    function updateSystem() {
+        // 1. Compute vectors
+        const blueVecs = blueCircles.map(c => getFourierVector(c, K));
+        const redVecs = redCircles.map(c => getFourierVector(c, K));
+
+        // 2. Compute matrix and find intersections
+        const intersectionMatrix = [];
+        for (let i = 0; i < NUM_CIRCLES; i++) {
+            intersectionMatrix[i] = [];
+            for (let j = 0; j < NUM_CIRCLES; j++) {
+                // Scale by domain area to approximate intersection area
+                let val = dotProduct(blueVecs[i], redVecs[j]) * (4 * L * L);
+                intersectionMatrix[i][j] = val;
+                
+                // Update DOM table
+                let cell = document.getElementById(`cell-${i}-${j}`);
+                let displayVal = Math.max(0, val); // Ignore small negative noise
+                cell.innerHTML = `<div class="cell-value">${displayVal.toFixed(2)}</div>`;
+                
+                // Color coding: White to Green
+                if (displayVal > 0.05) {
+                    // Max area of intersection is PI*R^2 ~ 3.14
+                    let intensity = Math.min(1, displayVal / 3.14);
+                    // Interpolate from white to a nice green (#4ade80)
+                    let r = Math.round(255 - intensity * (255 - 74));
+                    let g = Math.round(255 - intensity * (255 - 222));
+                    let b = Math.round(255 - intensity * (255 - 128));
+                    cell.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+                } else {
+                    cell.style.backgroundColor = 'transparent';
+                }
+            }
+        }
+
+        // 3. Draw Spatial
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw grid
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        for (let i = -10; i <= 10; i += 2) {
+            let p1 = toScreen(i, -10), p2 = toScreen(i, 10);
+            ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
+            p1 = toScreen(-10, i); p2 = toScreen(10, i);
+            ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
+        }
+
+        const rScreen = R * (canvas.width / (2 * L));
+
+        allCircles.forEach(c => {
+            let pos = toScreen(c.x, c.y);
+            let isBlue = c.type === 'blue';
+            let color = isBlue ? '#2563eb' : '#dc2626';
+            
+            // Check if this circle is intersecting any of the OPPOSITE color
+            let isIntersecting = false;
+            if (isBlue) {
+                isIntersecting = intersectionMatrix[c.id].some(v => v > 0.05);
+            } else {
+                isIntersecting = intersectionMatrix.some(row => row[c.id] > 0.05);
+            }
+
+            // Draw circle
+            ctx.beginPath();
+            ctx.arc(pos.sx, pos.sy, rScreen, 0, 2 * Math.PI);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Fill
+            if (isIntersecting) {
+                ctx.fillStyle = isBlue ? 'rgba(37, 99, 235, 0.3)' : 'rgba(220, 38, 38, 0.3)';
+            } else {
+                ctx.fillStyle = isBlue ? 'rgba(37, 99, 235, 0.05)' : 'rgba(220, 38, 38, 0.05)';
+            }
+            ctx.fill();
+
+            // Label
+            ctx.fillStyle = color;
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${isBlue ? 'B' : 'R'}${c.id}`, pos.sx, pos.sy);
+        });
+    }
+
+    // --- Interaction ---
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: evt.clientX - rect.left,
+            y: evt.clientY - rect.top
+        };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        const pos = getMousePos(e);
+        const mathPos = toMath(pos.x, pos.y);
+        
+        // Find clicked circle (reverse order to pick top ones)
+        for (let i = allCircles.length - 1; i >= 0; i--) {
+            let c = allCircles[i];
+            let dist = Math.sqrt((mathPos.x - c.x)**2 + (mathPos.y - c.y)**2);
+            if (dist < R) {
+                draggingCircle = c;
+                break;
+            }
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!draggingCircle) return;
+        
+        const pos = getMousePos(e);
+        let mathPos = toMath(pos.x, pos.y);
+        
+        // Clamp
+        mathPos.x = Math.max(-L + R, Math.min(L - R, mathPos.x));
+        mathPos.y = Math.max(-L + R, Math.min(L - R, mathPos.y));
+
+        draggingCircle.x = mathPos.x;
+        draggingCircle.y = mathPos.y;
+        
+        updateSystem();
+    });
+
+    window.addEventListener('mouseup', () => {
+        draggingCircle = null;
+    });
+
+    kSlider.addEventListener('input', (e) => {
+        K = parseInt(e.target.value);
+        kValue.textContent = K;
+        updateSystem();
+    });
+
+    // Init
+    buildTableStructure();
+    updateSystem();
+
+</script>
+</body>
+</html>
