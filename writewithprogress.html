@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Writing Tracker</title>
+    <style>
+        /* Minimal, grayscale reset and base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: sans-serif;
+            color: #111827;
+            background-color: #ffffff;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 48rem; /* 768px */
+            margin: 0 auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Header / Stats Area */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 0.5rem;
+        }
+
+        .target-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        label {
+            font-size: 0.875rem;
+            color: #4b5563;
+        }
+
+        input[type="number"] {
+            border: 1px solid #9ca3af;
+            padding: 0.25rem 0.5rem;
+            width: 6rem;
+            font-size: 0.875rem;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: #111827;
+        }
+
+        .stats-display {
+            text-align: right;
+        }
+
+        .word-count {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .target-display {
+            color: #4b5563;
+            margin-left: 0.25rem;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            position: relative;
+            width: 100%;
+            height: 1.5rem;
+            background-color: #e5e7eb;
+            border: 1px solid #d1d5db;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #374151;
+            width: 0%;
+            transition: width 0.3s ease-out;
+        }
+
+        .checkpoint {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background-color: #ffffff;
+            z-index: 10;
+        }
+
+        /* Text Area */
+        textarea {
+            width: 100%;
+            height: 24rem;
+            padding: 1rem;
+            border: 1px solid #9ca3af;
+            outline: none;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 1rem;
+            line-height: 1.625;
+        }
+
+        textarea:focus {
+            border-color: #111827;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Settings & Stats Header -->
+        <div class="header">
+            <div class="target-group">
+                <label for="targetInput">Target Words</label>
+                <input type="number" id="targetInput" min="1" value="500">
+            </div>
+            <div class="stats-display">
+                <span class="word-count" id="wordCountDisplay">0</span>
+                <span class="target-display">/ <span id="targetDisplay">500</span> words</span>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-fill" id="progressFill"></div>
+            
+            <!-- Checkpoints at 25%, 50%, 75% -->
+            <div class="checkpoint" style="left: 25%;" data-percent="25"></div>
+            <div class="checkpoint" style="left: 50%;" data-percent="50"></div>
+            <div class="checkpoint" style="left: 75%;" data-percent="75"></div>
+        </div>
+
+        <!-- Writing Area -->
+        <textarea id="writingArea" placeholder="Start writing here..."></textarea>
+    </div>
+
+    <script>
+        // DOM Elements
+        const writingArea = document.getElementById('writingArea');
+        const targetInput = document.getElementById('targetInput');
+        const wordCountDisplay = document.getElementById('wordCountDisplay');
+        const targetDisplay = document.getElementById('targetDisplay');
+        const progressFill = document.getElementById('progressFill');
+        const checkpoints = document.querySelectorAll('.checkpoint');
+
+        // Function to calculate and update everything
+        function updateTracker() {
+            // 1. Get Target Words
+            let targetWords = parseInt(targetInput.value, 10);
+            if (isNaN(targetWords) || targetWords < 1) {
+                targetWords = 1; // Fallback to prevent division by zero
+            }
+
+            // 2. Calculate Word Count
+            const text = writingArea.value.trim();
+            // Match sequences of non-whitespace characters
+            const words = text.match(/\S+/g); 
+            const wordCount = words ? words.length : 0;
+
+            // 3. Update Text Displays
+            wordCountDisplay.textContent = wordCount;
+            targetDisplay.textContent = targetWords;
+
+            // 4. Update Progress Bar
+            let progressPercentage = (wordCount / targetWords) * 100;
+            if (progressPercentage > 100) progressPercentage = 100;
+            progressFill.style.width = `${progressPercentage}%`;
+
+            // 5. Update Checkpoint Tooltips (Hover titles)
+            checkpoints.forEach(checkpoint => {
+                const percent = parseInt(checkpoint.getAttribute('data-percent'), 10);
+                const wordsAtCheckpoint = Math.round((targetWords * percent) / 100);
+                checkpoint.title = `Checkpoint: ${wordsAtCheckpoint} words`;
+            });
+        }
+
+        // Event Listeners
+        writingArea.addEventListener('input', updateTracker);
+        targetInput.addEventListener('input', updateTracker);
+
+        // Initialize on load
+        updateTracker();
+    </script>
+</body>
+</html>
