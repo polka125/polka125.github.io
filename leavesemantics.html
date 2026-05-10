@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Stack Visualization - Binja Theme (Ultra Compact)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Exact Binary Ninja Palette from Image */
+        :root {
+            --bg-main: #1e1e1e;
+            --bg-panel: #2d2d2d;
+            --bg-topbar: #454545;
+            --border-color: #1a1a1a;
+            
+            /* Syntax Highlighting */
+            --syn-addr: #73c991;     /* Light Green */
+            --syn-hex: #858585;      /* Grey */
+            --syn-type: #dcdcaa;     /* Yellow/Tan */
+            --syn-func: #569cd6;     /* Blue */
+            --syn-mnemonic: #dcdcaa; /* Yellow/Tan */
+            --syn-reg: #cccccc;      /* Light Grey */
+            --syn-var: #9cdcfe;      /* Light Blue */
+            --syn-number: #b5cea8;   /* Pale Green */
+            --syn-comment: #858585;  /* Grey */
+            
+            /* Pointers */
+            --color-rsp: #f43f5e;
+            --color-rbp: #38bdf8;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--syn-reg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+        }
+
+        .code-font {
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.15; /* Ultra tight line spacing */
+            letter-spacing: 0px;
+        }
+
+        /* Syntax Classes */
+        .addr { color: var(--syn-addr); width: 85px; flex-shrink: 0; }
+        .hex { color: var(--syn-hex); width: 140px; flex-shrink: 0; }
+        .mnemonic { color: var(--syn-mnemonic); width: 60px; flex-shrink: 0; }
+        .operands { color: var(--syn-reg); white-space: pre; }
+        .type { color: var(--syn-type); }
+        .func { color: var(--syn-func); }
+        .var { color: var(--syn-var); }
+        .num { color: var(--syn-number); }
+        .comment { color: var(--syn-comment); }
+        
+        .pointer-rsp { color: var(--color-rsp); }
+        .pointer-rbp { color: var(--color-rbp); }
+
+        /* Active Line Highlight */
+        .highlight-code { 
+            background-color: #37373d; 
+        }
+        .instruction-row {
+            display: flex;
+            padding: 0 8px;
+            border-left: 2px solid transparent;
+        }
+        .highlight-code {
+            border-left: 2px solid #007acc;
+        }
+
+        /* Stack Slot Animations */
+        .stack-slot { display: flex; padding: 0 8px; }
+        .stack-active { color: var(--syn-reg); }
+        .stack-inactive { color: var(--syn-comment); text-decoration: line-through; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-panel); }
+        ::-webkit-scrollbar-thumb { background: #424242; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Bar (Exact Match) -->
+    <div class="bg-[#454545] border-b-[6px] border-[#1a1a1a] flex items-center px-4 py-1.5 space-x-6 text-[13px] text-[#cccccc]">
+        <span class="cursor-pointer hover:text-white flex items-center">ELF <span class="text-[10px] ml-1">▼</span></span>
+        <span class="cursor-pointer hover:text-white flex items-center">Linear <span class="text-[10px] ml-1">▼</span></span>
+        <span class="cursor-pointer hover:text-white flex items-center">Disassembly <span class="text-[10px] ml-1">▼</span></span>
+    </div>
+
+    <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-1 flex-1 p-1 bg-[#1e1e1e]">
+        
+        <!-- Left Column: Assembly Code (Span 6) -->
+        <div class="panel lg:col-span-6 flex flex-col overflow-hidden">
+            <div class="overflow-y-auto overflow-x-auto flex-1 code-font py-2" id="code-block">
+                <!-- Main Header -->
+                <div class="flex px-2 mb-1">
+                    <span class="addr">00400070</span>
+                    <span class="hex"></span>
+                    <span><span class="type">int32_t</span> <span class="func">main</span>(<span class="type">int32_t</span> argc, <span class="type">char</span>** argv)</span>
+                </div>
+                <div id="code-0" class="instruction-row"><span class="addr">00400070</span><span class="hex">f30f1efa</span><span class="mnemonic">endbr64</span><span class="operands"></span></div>
+                <div id="code-1" class="instruction-row"><span class="addr">0040007b</span><span class="hex">e870000000</span><span class="mnemonic">call</span><span class="operands">do_nothing</span></div>
+                <div id="code-8" class="instruction-row"><span class="addr">00400080</span><span class="hex">...</span><span class="comment">[next instruction]</span></div>
+
+                <!-- Do Nothing Header -->
+                <div class="flex px-2 mt-4 mb-1">
+                    <span class="addr">004000f0</span>
+                    <span class="hex"></span>
+                    <span><span class="type">void</span> <span class="func">do_nothing</span>()</span>
+                </div>
+                <div id="code-2" class="instruction-row"><span class="addr">00400100</span><span class="hex">55</span><span class="mnemonic">push</span><span class="operands">rbp <span class="comment">{__saved_rbp}</span></span></div>
+                <div id="code-3" class="instruction-row"><span class="addr">00400101</span><span class="hex">4889e5</span><span class="mnemonic">mov</span><span class="operands">rbp, rsp</span></div>
+                <div id="code-4" class="instruction-row"><span class="addr">00400104</span><span class="hex">4883ec08</span><span class="mnemonic">sub</span><span class="operands">rsp, <span class="num">0x8</span></span></div>
+                <div id="code-5" class="instruction-row"><span class="addr">00400108</span><span class="hex">90</span><span class="mnemonic">nop</span><span class="operands"></span></div>
+                <div id="code-6" class="instruction-row"><span class="addr">00400109</span><span class="hex">c9</span><span class="mnemonic">leave</span><span class="operands"></span></div>
+                <div id="code-7" class="instruction-row"><span class="addr">0040010a</span><span class="hex">c3</span><span class="mnemonic">ret</span><span class="operands"></span></div>
+            </div>
+        </div>
+
+        <!-- Middle Column: Registers (Span 2) -->
+        <div class="panel lg:col-span-2 flex flex-col overflow-hidden">
+            <div class="bg-[#1a1a1a] text-[#858585] text-[11px] px-2 py-0.5 uppercase tracking-wider font-bold">Registers</div>
+            <div class="overflow-y-auto flex-1 code-font py-2 flex flex-col">
+                <div class="flex px-2 hover:bg-[#37373d]">
+                    <span class="w-10 font-bold text-[#cccccc]">rip</span>
+                    <span id="reg-rip" class="text-[#cccccc]">0040007b</span>
+                </div>
+                <div class="flex px-2 hover:bg-[#37373d]">
+                    <span class="w-10 font-bold pointer-rsp">rsp</span>
+                    <span id="reg-rsp" class="pointer-rsp">7fff0000</span>
+                </div>
+                <div class="flex px-2 hover:bg-[#37373d]">
+                    <span class="w-10 font-bold pointer-rbp">rbp</span>
+                    <span id="reg-rbp" class="pointer-rbp">7fff0020</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Stack Memory (Span 4) -->
+        <div class="panel lg:col-span-4 flex flex-col overflow-hidden">
+            <div class="bg-[#1a1a1a] text-[#858585] text-[11px] px-2 py-0.5 uppercase tracking-wider font-bold">Stack (Grows Down)</div>
+            <div class="overflow-y-auto overflow-x-auto flex-1 py-2">
+                <div class="flex flex-col code-font min-w-[250px]" id="stack-container">
+                    <!-- Stack slots generated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Controls -->
+    <div class="panel p-1.5 flex flex-col sm:flex-row gap-2 items-center bg-[#1e1e1e] border-t border-[#1a1a1a]">
+        <!-- Navigation -->
+        <div class="flex items-center space-x-1 shrink-0">
+            <button id="btn-prev" class="px-3 py-0.5 bg-[#3e3e42] hover:bg-[#4f4f53] text-[#cccccc] rounded-sm disabled:opacity-40 text-[12px] border border-[#555]">
+                Step Over (F8)
+            </button>
+            <span class="code-font text-[12px] text-[#858585] w-10 text-center" id="step-counter">0/7</span>
+            <button id="btn-next" class="px-3 py-0.5 bg-[#007acc] hover:bg-[#0098ff] text-white rounded-sm disabled:opacity-40 text-[12px] border border-[#005a9e]">
+                Step Into (F7)
+            </button>
+        </div>
+        
+        <!-- Description Box -->
+        <div class="flex-1 bg-[#2d2d2d] px-2 py-1 w-full flex items-center space-x-2 overflow-hidden">
+            <span class="font-bold text-[#569cd6] text-[12px] whitespace-nowrap" id="desc-title">Step 0: Before the Call</span>
+            <span class="text-[#858585] text-[12px] truncate" id="desc-text">We are in `main`, about to execute the `call do_nothing` instruction.</span>
+        </div>
+    </div>
+
+    <script>
+        const steps = [
+            {
+                title: "Step 0: Before Call",
+                text: "Stack pointer (rsp) is at the top of main's local data.",
+                code: 1,
+                rip: "0040007b", rsp: "7fff0000", rbp: "7fff0020",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true }
+                ]
+            },
+            {
+                title: "Step 1: call do_nothing",
+                text: "Pushes Return Address (00400080) onto stack. rsp -= 8.",
+                code: 2,
+                rip: "00400100", rsp: "7ffefff8", rbp: "7fff0020",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true }
+                ]
+            },
+            {
+                title: "Step 2: push rbp",
+                text: "Saves main's base pointer (7fff0020). rsp -= 8.",
+                code: 3,
+                rip: "00400101", rsp: "7ffefff0", rbp: "7fff0020",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
+                    { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true }
+                ]
+            },
+            {
+                title: "Step 3: mov rbp, rsp",
+                text: "Sets up new base pointer. rbp = rsp.",
+                code: 4,
+                rip: "00400104", rsp: "7ffefff0", rbp: "7ffefff0",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
+                    { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true }
+                ]
+            },
+            {
+                title: "Step 4: sub rsp, 0x8",
+                text: "Allocates 8 bytes for locals. rsp -= 8.",
+                code: 5,
+                rip: "00400108", rsp: "7ffeffe8", rbp: "7ffefff0",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
+                    { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true },
+                    { addr: "7ffeffe8", val: "[Dummy Local Data]", active: true }
+                ]
+            },
+            {
+                title: "Step 5: nop",
+                text: "No operation. State unchanged.",
+                code: 6,
+                rip: "00400109", rsp: "7ffeffe8", rbp: "7ffefff0",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
+                    { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true },
+                    { addr: "7ffeffe8", val: "[Dummy Local Data]", active: true }
+                ]
+            },
+            {
+                title: "Step 6: leave",
+                text: "mov rsp, rbp (discards locals) then pop rbp (restores main's rbp).",
+                code: 7,
+                rip: "0040010a", rsp: "7ffefff8", rbp: "7fff0020",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
+                    { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: false },
+                    { addr: "7ffeffe8", val: "[Dummy Local Data]", active: false }
+                ]
+            },
+            {
+                title: "Step 7: ret",
+                text: "Pops Return Address into rip. rsp += 8. Back in main.",
+                code: 8,
+                rip: "00400080", rsp: "7fff0000", rbp: "7fff0020",
+                stack: [
+                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    { addr: "7ffefff8", val: "00400080 {ret_addr}", active: false },
+                    { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: false },
+                    { addr: "7ffeffe8", val: "[Dummy Local Data]", active: false }
+                ]
+            }
+        ];
+
+        let currentStep = 0;
+
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const stepCounter = document.getElementById('step-counter');
+        const descTitle = document.getElementById('desc-title');
+        const descText = document.getElementById('desc-text');
+        const regRip = document.getElementById('reg-rip');
+        const regRsp = document.getElementById('reg-rsp');
+        const regRbp = document.getElementById('reg-rbp');
+        const stackContainer = document.getElementById('stack-container');
+
+        function updateUI() {
+            const step = steps[currentStep];
+
+            // Update Buttons
+            btnPrev.disabled = currentStep === 0;
+            btnNext.disabled = currentStep === steps.length - 1;
+            stepCounter.innerText = `${currentStep}/${steps.length - 1}`;
+
+            // Update Description
+            descTitle.innerText = step.title;
+            descText.innerText = step.text;
+
+            // Update Registers
+            regRip.innerText = step.rip;
+            regRsp.innerText = step.rsp;
+            regRbp.innerText = step.rbp;
+
+            // Highlight Code
+            document.querySelectorAll('.instruction-row').forEach(el => el.classList.remove('highlight-code'));
+            const activeCodeEl = document.getElementById(`code-${step.code}`);
+            if (activeCodeEl) activeCodeEl.classList.add('highlight-code');
+
+            // Render Stack
+            stackContainer.innerHTML = '';
+            
+            const fullStackAddresses = ["7fff0000", "7ffefff8", "7ffefff0", "7ffeffe8"];
+            
+            fullStackAddresses.forEach(addr => {
+                const stackItem = step.stack.find(s => s.addr === addr);
+                const div = document.createElement('div');
+                div.className = 'stack-slot hover:bg-[#37373d] items-center';
+                
+                if (stackItem) {
+                    div.classList.add(stackItem.active ? 'stack-active' : 'stack-inactive');
+                } else {
+                    div.classList.add('opacity-30');
+                }
+
+                let pointersHTML = '';
+                if (step.rsp === addr) pointersHTML += `<span class="pointer-rsp font-bold whitespace-nowrap">← rsp</span>`;
+                if (step.rbp === addr) pointersHTML += `<span class="pointer-rbp font-bold whitespace-nowrap">← rbp</span>`;
+
+                div.innerHTML = `
+                    <span class="addr">${addr}</span>
+                    <span class="flex-1 truncate">${stackItem ? stackItem.val : '<span class="comment">?? ?? ?? ??</span>'}</span>
+                    <div class="flex items-center gap-3 shrink-0 ml-2">
+                        ${pointersHTML}
+                    </div>
+                `;
+                stackContainer.appendChild(div);
+            });
+        }
+
+        btnPrev.addEventListener('click', () => {
+            if (currentStep > 0) { currentStep--; updateUI(); }
+        });
+
+        btnNext.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) { currentStep++; updateUI(); }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F8' && currentStep > 0) { e.preventDefault(); currentStep--; updateUI(); }
+            else if (e.key === 'F7' && currentStep < steps.length - 1) { e.preventDefault(); currentStep++; updateUI(); }
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
