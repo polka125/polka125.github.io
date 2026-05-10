@@ -176,6 +176,15 @@
     </div>
 
     <script>
+        // Shared base stack for main's frame
+        const mainFrame = [
+            { addr: "7fff0020", val: "[main's caller rbp]", active: true },
+            { addr: "7fff0018", val: "[main's local data]", active: true },
+            { addr: "7fff0010", val: "[main's local data]", active: true },
+            { addr: "7fff0008", val: "[main's local data]", active: true },
+            { addr: "7fff0000", val: "[main's local data]", active: true }
+        ];
+
         const steps = [
             {
                 title: "Step 0: Before Call",
@@ -183,7 +192,7 @@
                 code: 1,
                 rip: "0040007b", rsp: "7fff0000", rbp: "7fff0020",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true }
+                    ...mainFrame
                 ]
             },
             {
@@ -192,7 +201,7 @@
                 code: 2,
                 rip: "00400100", rsp: "7ffefff8", rbp: "7fff0020",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    ...mainFrame,
                     { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true }
                 ]
             },
@@ -202,7 +211,7 @@
                 code: 3,
                 rip: "00400101", rsp: "7ffefff0", rbp: "7fff0020",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    ...mainFrame,
                     { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
                     { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true }
                 ]
@@ -213,7 +222,7 @@
                 code: 4,
                 rip: "00400104", rsp: "7ffefff0", rbp: "7ffefff0",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    ...mainFrame,
                     { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
                     { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true }
                 ]
@@ -224,7 +233,7 @@
                 code: 5,
                 rip: "00400108", rsp: "7ffeffe8", rbp: "7ffefff0",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    ...mainFrame,
                     { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
                     { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true },
                     { addr: "7ffeffe8", val: "[Dummy Local Data]", active: true }
@@ -236,7 +245,7 @@
                 code: 6,
                 rip: "00400109", rsp: "7ffeffe8", rbp: "7ffefff0",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    ...mainFrame,
                     { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
                     { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: true },
                     { addr: "7ffeffe8", val: "[Dummy Local Data]", active: true }
@@ -248,7 +257,7 @@
                 code: 7,
                 rip: "0040010a", rsp: "7ffefff8", rbp: "7fff0020",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    ...mainFrame,
                     { addr: "7ffefff8", val: "00400080 {ret_addr}", active: true },
                     { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: false },
                     { addr: "7ffeffe8", val: "[Dummy Local Data]", active: false }
@@ -260,7 +269,7 @@
                 code: 8,
                 rip: "00400080", rsp: "7fff0000", rbp: "7fff0020",
                 stack: [
-                    { addr: "7fff0000", val: "[Main's local data]", active: true },
+                    ...mainFrame,
                     { addr: "7ffefff8", val: "00400080 {ret_addr}", active: false },
                     { addr: "7ffefff0", val: "7fff0020 {__saved_rbp}", active: false },
                     { addr: "7ffeffe8", val: "[Dummy Local Data]", active: false }
@@ -305,7 +314,10 @@
             // Render Stack
             stackContainer.innerHTML = '';
             
-            const fullStackAddresses = ["7fff0000", "7ffefff8", "7ffefff0", "7ffeffe8"];
+            const fullStackAddresses = [
+                "7fff0020", "7fff0018", "7fff0010", "7fff0008", "7fff0000", 
+                "7ffefff8", "7ffefff0", "7ffeffe8"
+            ];
             
             fullStackAddresses.forEach(addr => {
                 const stackItem = step.stack.find(s => s.addr === addr);
