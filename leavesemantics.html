@@ -160,11 +160,11 @@
         <!-- Navigation -->
         <div class="flex items-center space-x-1 shrink-0">
             <button id="btn-prev" class="px-3 py-0.5 bg-[#3e3e42] hover:bg-[#4f4f53] text-[#cccccc] rounded-sm disabled:opacity-40 text-[12px] border border-[#555]">
-                Step Over (F8)
+                Backward (k)
             </button>
             <span class="code-font text-[12px] text-[#858585] w-10 text-center" id="step-counter">0/7</span>
             <button id="btn-next" class="px-3 py-0.5 bg-[#007acc] hover:bg-[#0098ff] text-white rounded-sm disabled:opacity-40 text-[12px] border border-[#005a9e]">
-                Step Into (F7)
+                Forward (j)
             </button>
         </div>
         
@@ -342,8 +342,8 @@
         });
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'F8' && currentStep > 0) { e.preventDefault(); currentStep--; updateUI(); }
-            else if (e.key === 'F7' && currentStep < steps.length - 1) { e.preventDefault(); currentStep++; updateUI(); }
+            if (e.key === 'k' && currentStep > 0) { e.preventDefault(); currentStep--; updateUI(); }
+            else if (e.key === 'j' && currentStep < steps.length - 1) { e.preventDefault(); currentStep++; updateUI(); }
         });
 
         updateUI();
