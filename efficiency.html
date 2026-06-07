@@ -651,14 +651,14 @@ for i, val in enumerate(fib20):
             outputArea.textContent = "Error: " + error;
         }
 
-        runBtn.addEventListener('click', () => {
+        runBtn.addEventListener('click', async () => {
             if (!mp) return;
             
             outputArea.textContent = "";
             const code = codeInput.value;
             
             try {
-                mp.runPython(code);
+                await mp.runPythonAsync(code);
             } catch (error) {
                 outputArea.textContent += "\n" + error;
             }
