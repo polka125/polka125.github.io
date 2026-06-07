@@ -9,6 +9,7 @@
         It will be available as a global variable named `PDFLib`.
     -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="micropython.mjs" type="module"></script>
     <style>
         /* Style for the container of the file list */
         #fileListContainer {
@@ -585,6 +586,82 @@
     </div>
 
     <hr>
+
+    <hr>
+
+    <!-- MicroPython Section -->
+    <div id="micropython-section">
+        <h1>MicroPython Editor</h1>
+        <p>WASM compiled MicroPython interpreter, runs entirely in your browser! Check out the <a href="https://micropython.org/" target="_blank">official MicroPython website</a> for more information.</p>
+        <div style="display: flex; flex-direction: column; max-width: 800px;">
+            <textarea id="code-input" spellcheck="false" style="width: 100%; height: 250px; box-sizing: border-box; margin-bottom: 10px;">
+def fibonacci(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+
+fib20 = list(map(fibonacci, range(20)))
+for i, val in enumerate(fib20):
+    print(f"Fib({i}) = {val}")
+</textarea>
+
+            <button id="run-btn" disabled style="align-self: flex-start; margin-bottom: 10px;">Loading...</button>
+
+            <pre id="output" style="width: 100%; min-height: 150px; box-sizing: border-box; border: 1px solid black; padding: 5px; white-space: pre-wrap; margin: 0;">Initializing...</pre>
+        </div>
+    </div>
+
+    <!-- MicroPython Script -->
+    <script type="module">
+        const codeInput = document.getElementById('code-input');
+        const runBtn = document.getElementById('run-btn');
+        const outputArea = document.getElementById('output');
+
+        // Handle Tab key for 4 spaces
+        codeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                
+                // Insert 4 spaces at cursor
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                
+                // Move cursor past the inserted spaces
+                this.selectionStart = this.selectionEnd = start + 4;
+            }
+        });
+
+        let mp;
+
+        const stdoutWriter = (text) => {
+            outputArea.textContent += text + "\n";
+        };
+
+        try {
+            mp = await loadMicroPython({ stdout: stdoutWriter });
+            outputArea.textContent = "";
+            runBtn.textContent = "Run";
+            runBtn.disabled = false;
+        } catch (error) {
+            outputArea.textContent = "Error: " + error;
+        }
+
+        runBtn.addEventListener('click', () => {
+            if (!mp) return;
+            
+            outputArea.textContent = "";
+            const code = codeInput.value;
+            
+            try {
+                mp.runPython(code);
+            } catch (error) {
+                outputArea.textContent += "\n" + error;
+            }
+        });
+    </script>
 
 
 </body>
